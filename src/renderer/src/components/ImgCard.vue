@@ -83,13 +83,14 @@ watch(
     @dblclick="viewImage"
   >
     <!-- 图片容器 -->
-    <div class="relative aspect-square bg-gradient-to-br from-green-50 to-emerald-50 overflow-hidden rounded-t-2xl">
+    <div class="relative bg-gradient-to-br from-green-50 to-emerald-50 overflow-hidden rounded-t-2xl" style="min-height: 200px; max-height: 400px;">
       <!-- 图片显示 -->
-      <div class="w-full h-full transition-transform duration-300 group-hover:scale-105">
+      <div class="w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105" style="min-height: 200px; max-height: 400px;">
         <img 
           :src="`local-image://${image.path.replace(/\\/g, '/')}`"
           :alt="image.name"
-          class="w-full h-full object-cover"
+          class="w-full h-auto object-contain"
+          style="max-height: 100%; max-width: 100%;"
           @load="() => { 
             imageLoaded = true; 
             console.log('图片加载成功:', image.name, '路径:', image.path); 
