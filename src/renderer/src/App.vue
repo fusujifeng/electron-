@@ -21,6 +21,8 @@ const selectedFolder = ref('')
 const searchQuery = ref('')
 const selectedCategory = ref('all')
 const isLoading = ref(false)
+const selectedPreviewImage = ref<Video | null>(null)
+const showPreviewPanel = ref(false)
 
 // 导航历史记录
 const navigationHistory = ref<string[]>([])
@@ -40,7 +42,7 @@ const categories = computed(() => {
     { id: 'music', name: '音乐', icon: '🎵', count: 0 },
     { id: 'other', name: '其他', icon: '📂', count: 0 }
   ]
-  
+
   // 更新分类计数
   baseCategories.forEach(category => {
     if (category.id === 'all') {
@@ -49,7 +51,7 @@ const categories = computed(() => {
       category.count = videoStore.videos.filter(video => video.category === category.id).length
     }
   })
-  
+
   return baseCategories
 })
 
@@ -82,19 +84,19 @@ const loadVideos = async () => {
     console.log('没有选择文件夹，跳过加载')
     return
   }
-  
+
   try {
     console.log('开始加载文件夹:', selectedFolder.value)
     isLoading.value = true
-    
+
     // 清空现有数据
     videoStore.clearVideos()
     console.log('已清空现有数据')
-    
+
     // 扫描选择的文件夹
     const result = await window.api?.scanFolder(selectedFolder.value)
     console.log('扫描结果:', result)
-    
+
     if (result?.success && result.items) {
       console.log('找到', result.items.length, '个项目')
       // 处理扫描结果
@@ -161,9 +163,9 @@ const loadVideos = async () => {
     } else {
       console.error('扫描文件夹失败:', result?.error)
     }
-    
+
     console.log('数据刷新完成，当前视频数量:', videoStore.videos.length)
-    
+
   } catch (error) {
     console.error('加载视频失败:', error)
   } finally {
@@ -195,11 +197,11 @@ const detectCategory = (filename: string): string => {
 const generateTags = (filename: string): string[] => {
   const tags: string[] = []
   const name = filename.toLowerCase()
-  
+
   if (name.includes('1080p') || name.includes('hd')) tags.push('高清')
   if (name.includes('4k') || name.includes('2160p')) tags.push('4K')
   if (name.includes('bluray') || name.includes('蓝光')) tags.push('蓝光')
-  
+
   return tags
 }
 
@@ -209,7 +211,7 @@ const handleFolderSelect = async (folderPath: string) => {
   if (selectedFolder.value && selectedFolder.value !== folderPath) {
     navigationHistory.value.push(selectedFolder.value)
   }
-  
+
   selectedFolder.value = folderPath
   videoStore.updateSettings({ lastSelectedFolder: folderPath })
   await loadVideos()
@@ -268,6 +270,50 @@ const handleVideoFavorite = (video: Video) => {
   console.log('收藏状态变化:', video.name, video.isFavorite)
 }
 
+// 处理文件夹卡片点击预览
+const handleFolderPreview = (video: Video) => {
+  if (video.isFolder) {
+    selectedPreviewImage.value = video
+    showPreviewPanel.value = true
+    console.log('显示文件夹预览:', video.name, '缩略图:', video.thumbnail)
+  }
+}
+
+// 关闭预览面板
+const closePreviewPanel = () => {
+  showPreviewPanel.value = false
+  selectedPreviewImage.value = null
+}
+
+// 获取预览图片源URL
+const getPreviewImageSrc = (video: Video) => {
+  if (!video.thumbnail) return '/folder-icon.svg'
+
+  // 如果是blob URL或绝对路径，直接返回
+  if (video.thumbnail.startsWith('blob:') || video.thumbnail.startsWith('/')) {
+    return video.thumbnail
+  }
+
+  // 如果已经是 local-image:// 协议，检查是否需要解码
+  if (video.thumbnail.startsWith('local-image://')) {
+    const url = video.thumbnail
+    // 如果URL包含编码字符，尝试解码一次
+    if (url.includes('%')) {
+      try {
+        const decodedPath = decodeURIComponent(url.replace('local-image://', ''))
+        return `local-image://${decodedPath}`
+      } catch (e) {
+        console.warn('URL解码失败，使用原始URL:', url)
+        return url
+      }
+    }
+    return url
+  }
+
+  // 否则构建 local-image:// URL
+  return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
+}
+
 // 组件挂载时初始化
 onMounted(async () => {
   // 加载上次选择的文件夹
@@ -276,13 +322,13 @@ onMounted(async () => {
     selectedFolder.value = lastFolder
     await loadVideos()
   }
-  
+
   console.log('视频管理器已启动，视频数量:', videoStore.videos.length)
 })
 </script>
 
 <template>
-  <div class="min-h-screen">
+  <div class="min-h-screen flex flex-col">
     <!-- 小红书风格头部导航 -->
     <header class="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-pink-100/50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -298,7 +344,7 @@ onMounted(async () => {
               <h1 class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-red-500 bg-clip-text text-transparent">视频小记</h1>
               <p class="text-xs text-gray-500 font-medium">发现美好视频</p>
             </div>
-            
+
             <!-- 导航区域 -->
             <div v-if="selectedFolder" class="flex items-center space-x-3 ml-6">
               <!-- 回退按钮 -->
@@ -313,7 +359,7 @@ onMounted(async () => {
                 </svg>
                 <span class="text-sm font-medium">返回</span>
               </button>
-              
+
               <!-- 当前路径显示 -->
               <div class="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200">
                 <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,12 +371,12 @@ onMounted(async () => {
               </div>
             </div>
           </div>
-          
+
           <!-- 搜索栏 -->
           <div class="flex-1 max-w-md mx-8">
             <SearchBar @search="handleSearch" />
           </div>
-          
+
           <!-- 分类筛选 -->
           <div class="flex items-center space-x-4">
             <CategoryFilter
@@ -342,30 +388,95 @@ onMounted(async () => {
         </div>
       </div>
     </header>
-    
+
     <!-- 主要内容区域 -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- 文件夹选择区域 -->
-      <div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <FolderSelector
-          :selected-folder="selectedFolder"
+    <main class="flex-1 flex">
+      <!-- 左侧内容区域 -->
+      <div
+        class=" w-[66vw] overflow-auto transition-all duration-300"
+        :class="{ 'mr-96': showPreviewPanel }"
+      >
+        <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
+        <!-- 文件夹选择区域 -->
+        <div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <FolderSelector
+            :selected-folder="selectedFolder"
+            :is-loading="isLoading"
+            @select="selectFolder"
+            @refresh="refreshFolder"
+          />
+        </div>
+
+        <!-- 视频网格 -->
+        <VideoGrid
+          :videos="videoStore.videos"
+          :search-query="searchQuery"
+          :selected-category="selectedCategory"
           :is-loading="isLoading"
-          @select="selectFolder"
-          @refresh="refreshFolder"
-        />
+          @video-update="handleVideoUpdate"
+          @video-play="handleVideoPlay"
+          @video-favorite="handleVideoFavorite"
+          @folder-select="handleFolderSelect"
+          @folder-preview="handleFolderPreview"
+        /></div>
+        </div>
+
+
+      <!-- 右侧预览面板 -->
+      <div
+        v-if="showPreviewPanel && selectedPreviewImage"
+        class="fixed right-0 top-0 w-[33vw] h-full bg-white border-l border-gray-200 flex flex-col z-50 shadow-lg"
+      >
+        <!-- 预览面板头部 -->
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+          <h3 class="text-lg font-semibold text-gray-800 truncate">
+            {{ selectedPreviewImage.title || selectedPreviewImage.name }}
+          </h3>
+          <button
+            @click="closePreviewPanel"
+            class="p-2 hover:bg-gray-200 rounded-full transition-colors"
+          >
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 预览图片区域 -->
+        <div class="flex-1 p-2 flex items-center justify-center bg-gray-50" style="min-height: 400px;">
+          <div class="w-full h-full flex items-center justify-center">
+            <img
+              :src="getPreviewImageSrc(selectedPreviewImage)"
+              :alt="selectedPreviewImage.name"
+              class="rounded-lg shadow-lg"
+              style="max-height: calc(100vh - 200px); max-width: 100%; width: auto; height: auto; min-height: 350px; object-fit: contain;"
+              @error="$event.target.src = '/folder-icon.svg'"
+              @load="console.log('预览图片加载成功:', selectedPreviewImage.name)"
+            />
+          </div>
+        </div>
+
+        <!-- 预览信息区域 -->
+        <div class="p-4 border-t border-gray-200 bg-white">
+          <div class="space-y-3">
+            <div class="flex items-center space-x-2">
+              <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+              </svg>
+              <span class="text-sm text-gray-600">文件夹</span>
+            </div>
+            <div class="text-xs text-gray-500 break-all">
+              {{ selectedPreviewImage.path }}
+            </div>
+            <button
+              @click="handleFolderSelect(selectedPreviewImage.path)"
+              class="w-full mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+            >
+              进入文件夹
+            </button>
+          </div>
+        </div>
       </div>
-      
-  <!-- 视频网格 -->
-      <VideoGrid 
-        :videos="videoStore.videos" 
-        :search-query="searchQuery"
-        :selected-category="selectedCategory"
-        :is-loading="isLoading"
-        @video-update="handleVideoUpdate"
-        @video-play="handleVideoPlay"
-        @video-favorite="handleVideoFavorite"
-        @folder-select="handleFolderSelect"
-      />
-    </main>
+  </main>
   </div>
 </template>

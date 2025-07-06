@@ -12,6 +12,7 @@ interface Emits {
   (e: 'play', video: Video): void
   (e: 'favorite', video: Video): void
   (e: 'folder-select', path: string): void
+  (e: 'folder-preview', video: Video): void
 }
 
 const props = defineProps<Props>()
@@ -62,6 +63,14 @@ const getFileExtension = computed(() => {
   const ext = props.video.name.split('.').pop()?.toUpperCase()
   return ext || 'VIDEO'
 })
+
+// 处理单击事件
+const handleClick = () => {
+  if (props.video.isFolder) {
+    // 如果是文件夹，触发预览事件
+    emit('folder-preview', props.video)
+  }
+}
 
 // 处理双击事件
 const handleDoubleClick = async () => {
@@ -211,6 +220,7 @@ const getImageSrc = (video: Video) => {
     class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer border border-pink-50 hover:border-pink-100 hover:-translate-y-2"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
+    @click="handleClick"
     @dblclick="handleDoubleClick"
   >
     <!-- 缩略图容器 -->

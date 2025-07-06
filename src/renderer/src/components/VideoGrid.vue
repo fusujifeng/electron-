@@ -16,6 +16,7 @@ interface Emits {
   (e: 'video-play', video: Video): void
   (e: 'video-favorite', video: Video): void
   (e: 'folder-select', path: string): void
+  (e: 'folder-preview', video: Video): void
 }
 
 const props = defineProps<Props>()
@@ -91,6 +92,10 @@ const handleVideoFavorite = (video: Video) => {
 
 const handleFolderSelect = (path: string) => {
   emit('folder-select', path)
+}
+
+const handleFolderPreview = (video: Video) => {
+  emit('folder-preview', video)
 }
 
 // 更新可见视频列表
@@ -189,6 +194,7 @@ onUnmounted(() => {
           @play="handleVideoPlay"
           @favorite="handleVideoFavorite"
           @folder-select="handleFolderSelect"
+          @folder-preview="handleFolderPreview"
         />
         <ImgCard 
           v-else
