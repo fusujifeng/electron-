@@ -214,7 +214,7 @@ const getImageSrc = (video: Video) => {
     @dblclick="handleDoubleClick"
   >
     <!-- 缩略图容器 -->
-    <div class="relative aspect-video bg-gradient-to-br from-pink-50 to-red-50 overflow-hidden rounded-t-2xl">
+    <div class="relative bg-gradient-to-br from-pink-50 to-red-50 overflow-hidden rounded-t-2xl" :style="video.thumbnail ? 'min-height: 200px; max-height: 400px;' : 'aspect-ratio: 16/9;'">
       <!-- 图片上传组件 -->
       <div v-if="showImageUpload" class="absolute inset-0 z-20 bg-white">
         <ImageUpload
@@ -239,13 +239,15 @@ const getImageSrc = (video: Video) => {
       <!-- 缩略图 -->
       <div
         v-if="video.thumbnail && !showImageUpload"
-        class="w-full h-full transition-transform duration-300 group-hover:scale-105"
+        class="w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
+        :style="'min-height: 200px; max-height: 400px;'"
       >
         <!-- 对于所有有缩略图的项目，使用img标签显示 -->
         <img
           :src="getImageSrc(video)"
           :alt="video.name"
-          class="w-full h-full object-cover"
+          class="w-full h-auto object-contain"
+           style="max-height: 100%; max-width: 100%;"
           @load="() => { 
             imageLoaded = true; 
             console.log('图片加载成功:', video.name, '路径:', video.thumbnail); 
