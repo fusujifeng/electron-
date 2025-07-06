@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test MIDV-908 Image Loading</title>
+</head>
+<body>
+    <h1>测试MIDV-908图片加载</h1>
+    
+    <h2>编码URL测试:</h2>
+    <img id="encoded-img" src="local-image://D%3A%2F%E7%94%B5%E5%BD%B1%2FMIDV-908%2F1.png" 
+         style="max-width: 300px; border: 1px solid red;" 
+         onload="console.log('编码URL图片加载成功')" 
+         onerror="console.error('编码URL图片加载失败')">
+    
+    <h2>普通URL测试:</h2>
+    <img id="normal-img" src="local-image://D:/电影/MIDV-908/1.png" 
+         style="max-width: 300px; border: 1px solid blue;" 
+         onload="console.log('普通URL图片加载成功')" 
+         onerror="console.error('普通URL图片加载失败')">
+    
+    <script>
+        console.log('页面加载完成，开始测试图片加载...');
+        
+        // 监听图片加载事件
+        document.getElementById('encoded-img').addEventListener('load', function() {
+            console.log('✅ 编码URL图片加载成功:', this.src);
+        });
+        
+        document.getElementById('encoded-img').addEventListener('error', function() {
+            console.error('❌ 编码URL图片加载失败:', this.src);
+        });
+        
+        document.getElementById('normal-img').addEventListener('load', function() {
+            console.log('✅ 普通URL图片加载成功:', this.src);
+        });
+        
+        document.getElementById('normal-img').addEventListener('error', function() {
+            console.error('❌ 普通URL图片加载失败:', this.src);
+        });
+    </script>
+</body>
+</html>

@@ -125,7 +125,7 @@ const loadVideos = async () => {
             name: item.name,
             title: item.name, // 直接使用文件夹名作为标题
             path: item.path,
-            thumbnail: item.coverImage ? `local-image://${item.coverImage.replace(/\\/g, '/')}` : '/folder-icon.svg',
+            thumbnail: item.coverImage ? `local-image://${encodeURIComponent(item.coverImage.replace(/\\/g, '/'))}` : '/folder-icon.svg',
             duration: 0,
             size: 0,
             category: 'folder',

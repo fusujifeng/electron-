@@ -66,23 +66,51 @@ app.whenReady().then(() => {
   // 注册自定义协议来处理本地图片文件
   protocol.registerFileProtocol('local-image', (request, callback) => {
     const url = request.url.substring(13) // 移除 'local-image://' 前缀
+    
+    console.log('=== Local-image Protocol Request ===');
+    console.log('原始URL:', request.url);
+    console.log('提取的路径:', url);
+    
     // 解码URL并处理路径
-    let filePath = decodeURIComponent(url)
+    let filePath = url;
+    
+    // 多次解码以处理可能的多重编码
+    let previousPath = '';
+    while (filePath !== previousPath && filePath.includes('%')) {
+      previousPath = filePath;
+      try {
+        filePath = decodeURIComponent(filePath);
+        console.log('解码步骤:', filePath);
+      } catch (e) {
+        console.error('解码失败:', e);
+        break;
+      }
+    }
     
     // 在Windows上，处理路径格式
     if (process.platform === 'win32') {
-      // 处理类似 /d/path 的格式，转换为 D:/path
-      if (filePath.match(/^\/[a-zA-Z]\//)) {
-        filePath = filePath.charAt(1).toUpperCase() + ':' + filePath.substring(2)
+      // 如果路径已经是完整的Windows路径格式（如 D:/path 或 D:\path），直接使用
+      if (filePath.match(/^[a-zA-Z]:[/\\]/)) {
+        filePath = filePath.replace(/\//g, '\\')
       }
-      // 确保使用正确的路径分隔符
-      filePath = filePath.replace(/\//g, '\\')
+      // 处理类似 /D:/path 的格式（前导斜杠 + 完整Windows路径），移除前导斜杠
+      else if (filePath.match(/^\/[a-zA-Z]:[/\\]/)) {
+        filePath = filePath.substring(1) // 移除前导斜杠
+        filePath = filePath.replace(/\//g, '\\')
+      }
+      // 处理类似 /d/path 的格式，转换为 D:/path
+      else if (filePath.match(/^\/[a-zA-Z]\//)) {
+        filePath = filePath.charAt(1).toUpperCase() + ':' + filePath.substring(2)
+        filePath = filePath.replace(/\//g, '\\')
+      }
+      // 处理多个前导斜杠的情况，如 ///D:/path
+      else if (filePath.match(/^\/+[a-zA-Z]:[/\\]/)) {
+        // 移除所有前导斜杠直到找到驱动器字母
+        filePath = filePath.replace(/^\/+/, '')
+        filePath = filePath.replace(/\//g, '\\')
+      }
     }
     
-    console.log('=== Local-image Protocol Request ===')
-    console.log('原始URL:', request.url)
-    console.log('提取的路径:', url)
-    console.log('解码后路径:', decodeURIComponent(url))
     console.log('最终文件路径:', filePath)
     
     // 检查文件是否存在

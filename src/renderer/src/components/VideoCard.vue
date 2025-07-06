@@ -175,6 +175,35 @@ const handleUploadError = (message: string) => {
 const toggleImageUpload = () => {
   showImageUpload.value = !showImageUpload.value
 }
+
+// 获取图片源URL
+const getImageSrc = (video: Video) => {
+  if (!video.thumbnail) return ''
+  
+  // 如果是blob URL或绝对路径，直接返回
+  if (video.thumbnail.startsWith('blob:') || video.thumbnail.startsWith('/')) {
+    return video.thumbnail
+  }
+  
+  // 如果已经是 local-image:// 协议，检查是否需要解码
+  if (video.thumbnail.startsWith('local-image://')) {
+    const url = video.thumbnail
+    // 如果URL包含编码字符，尝试解码一次
+    if (url.includes('%')) {
+      try {
+        const decodedPath = decodeURIComponent(url.replace('local-image://', ''))
+        return `local-image://${decodedPath}`
+      } catch (e) {
+        console.warn('URL解码失败，使用原始URL:', url)
+        return url
+      }
+    }
+    return url
+  }
+  
+  // 否则构建 local-image:// URL
+  return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
+}
 </script>
 
 <template>
@@ -209,35 +238,33 @@ const toggleImageUpload = () => {
 
       <!-- 缩略图 -->
       <div
-        v-if="video.thumbnail && !imageError && !showImageUpload"
+        v-if="video.thumbnail && !showImageUpload"
         class="w-full h-full transition-transform duration-300 group-hover:scale-105"
       >
-        <!-- 对于图片类型，使用img标签而不是background-image -->
+        <!-- 对于所有有缩略图的项目，使用img标签显示 -->
         <img
-          :src="video.thumbnail.startsWith('blob:') ? video.thumbnail : `local-image://${video.thumbnail.replace(/\\/g, '/')}`"
+          :src="getImageSrc(video)"
           :alt="video.name"
           class="w-full h-full object-cover"
-          @load="() => { imageLoaded = true; console.log('图片加载成功:', video.name, video.thumbnail, 'category:', video.category); }"
-          @error="() => { imageError = true; console.error('图片加载失败:', video.name, video.thumbnail, video.category, 'imageError:', imageError, 'showImageUpload:', showImageUpload); }"
+          @load="() => { 
+            imageLoaded = true; 
+            console.log('图片加载成功:', video.name, '路径:', video.thumbnail); 
+          }"
+          @error="(event) => { 
+            console.error('图片加载失败详情:'); 
+            console.error('- 文件名:', video.name); 
+            console.error('- 原始缩略图路径:', video.thumbnail); 
+            console.error('- 转换后URL:', getImageSrc(video)); 
+            console.error('- 错误事件:', event); 
+            console.error('- 图片元素src:', event.target?.src); 
+            console.error('- category:', video.category, 'isFolder:', video.isFolder); 
+            // 不设置imageError，让图片继续显示，可能是临时网络问题
+          }"
         />
 
-        <!-- 临时调试信息 -->
+        <!-- 文件夹封面的遮罩层，用于更好的文字可读性 -->
         <div
-          v-if="video.category === 'image'"
-          class="absolute bottom-1 left-1 text-xs bg-red-500 text-white px-1 rounded z-20"
-          style="font-size: 10px; max-width: 200px; word-break: break-all;"
-        >
-          状态: {{ imageError ? '失败' : imageLoaded ? '成功' : '加载中' }}<br>
-          路径: {{ video.thumbnail }}<br>
-          原始路径: {{ video.path }}<br>
-          imageError: {{ imageError }}<br>
-          showImageUpload: {{ showImageUpload }}
-        </div>
-
-
-        <!-- 图片类型时的遮罩层，用于更好的文字可读性 -->
-        <div
-          v-if="video.category === 'image'"
+          v-if="video.isFolder || video.category === 'image'"
           class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/20 pointer-events-none"
         ></div>
       </div>
@@ -248,17 +275,7 @@ const toggleImageUpload = () => {
         class="w-full h-full flex items-center justify-center"
         :class="video.isFolder ? 'bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-gradient-to-br from-pink-50 to-red-50'"
       >
-        <!-- 临时调试信息 - 默认图标区域 -->
-        <div
-          v-if="video.category === 'image'"
-          class="absolute top-1 left-1 text-xs bg-blue-500 text-white px-1 rounded z-20"
-          style="font-size: 10px; max-width: 200px; word-break: break-all;"
-        >
-          显示默认图标原因:<br>
-          thumbnail: {{ video.thumbnail}}<br>
-          imageError: {{ imageError }}<br>
-          showImageUpload: {{ showImageUpload }}
-        </div>
+
         <div class="text-center">
           <div class="p-4 bg-white/80 rounded-2xl backdrop-blur-sm shadow-lg">
             <!-- 文件夹图标 -->
