@@ -320,13 +320,13 @@ const handleVideoUpdate = (_updatedVideo: Video) => {
 }
 
 // 处理视频播放
-const handleVideoPlay = (video: Video) => {
+const handleVideoPlay = () => {
   // 这里可以调用 Electron 主进程来播放视频
   // window.electron.ipcRenderer.send('play-video', video.path)
 }
 
 // 处理视频收藏
-const handleVideoFavorite = (video: Video) => {
+const handleVideoFavorite = () => {
   // 收藏状态变化处理
 }
 

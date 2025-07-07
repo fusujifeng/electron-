@@ -29,7 +29,7 @@ export interface FolderTags {
   [folderPath: string]: string[]
 }
 
-const STORAGE_KEY = 'feng-video-player-videos'
+const STORAGE_KEY = 'feng-video-player-data'
 const SETTINGS_KEY = 'feng-video-player-settings'
 const FOLDER_TAGS_KEY = 'feng-video-player-folder-tags'
 
@@ -63,11 +63,21 @@ export const useVideoStore = defineStore('video', () => {
   // Actions
   const loadData = () => {
     try {
-      const storedVideos = localStorage.getItem(STORAGE_KEY)
-      if (storedVideos) {
-        const parsedData = JSON.parse(storedVideos)
-        videos.value = parsedData.videos || []
-        folders.value = parsedData.folders || []
+      const storedData = localStorage.getItem(STORAGE_KEY)
+      if (storedData) {
+        const parsedData = JSON.parse(storedData)
+        // 兼容DataService格式和videoStore格式
+        if (parsedData.videos && Array.isArray(parsedData.videos)) {
+          videos.value = parsedData.videos
+          folders.value = parsedData.folders || []
+          // 合并DataService的settings到videoStore的settings
+          if (parsedData.settings) {
+            settings.value = { ...settings.value, ...parsedData.settings }
+          }
+        } else if (Array.isArray(parsedData)) {
+          // 兼容旧格式（直接是视频数组）
+          videos.value = parsedData
+        }
       }
 
       const storedSettings = localStorage.getItem(SETTINGS_KEY)
@@ -88,9 +98,16 @@ export const useVideoStore = defineStore('video', () => {
 
   const saveData = () => {
     try {
+      // 使用DataService兼容的格式保存数据
       const data = {
         videos: videos.value,
-        folders: folders.value
+        folders: folders.value,
+        settings: {
+          lastSelectedFolder: settings.value.lastSelectedFolder,
+          viewMode: 'grid', // DataService默认值
+          sortBy: 'name',   // DataService默认值
+          sortOrder: 'asc'  // DataService默认值
+        }
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings.value))

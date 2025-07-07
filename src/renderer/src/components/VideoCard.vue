@@ -24,6 +24,8 @@ const imageLoaded = ref(false)
 const imageError = ref(false)
 const showImageUpload = ref(false)
 
+
+
 // 计算显示的标签
 const displayTags = computed(() => {
   if (props.video.isFolder) {
@@ -181,7 +183,7 @@ const handleThumbnailRemove = () => {
 }
 
 // 处理上传错误
-const handleUploadError = (message: string) => {
+const handleUploadError = () => {
   // TODO: 显示错误提示给用户
 }
 
