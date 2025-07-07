@@ -126,12 +126,12 @@ const handleFileSelect = (event: Event) => {
 }
 
 // 处理拖拽
-const handleDragOver = (event: DragEvent) => {
+const handleDragOver = (_event: DragEvent) => {
   if (props.disabled) return
   isDragOver.value = true
 }
 
-const handleDragLeave = (event: DragEvent) => {
+const handleDragLeave = (_event: DragEvent) => {
   isDragOver.value = false
 }
 

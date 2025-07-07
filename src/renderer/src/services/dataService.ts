@@ -2,17 +2,19 @@ import { ref, reactive } from 'vue'
 
 export interface Video {
   id: string
+  name?: string
   title: string
   path: string
-  thumbnail: string
-  duration: number
+  thumbnail?: string
+  duration?: number
   size: number
-  category: string
-  tags: string[]
-  createdAt: Date
+  category?: string
+  tags?: string[]
+  playCount?: number
+  rating?: number
+  isFavorite?: boolean
+  createdAt?: Date
   lastPlayed?: Date
-  playCount: number
-  rating: number
   isFolder?: boolean
 }
 
@@ -129,7 +131,7 @@ class DataService {
     const video = this.data.videos.find(v => v.id === id)
     if (!video) return null
 
-    return this.updateVideo(id, { isFavorite: !video.isFavorite })
+    return this.updateVideo(id, { isFavorite: !(video.isFavorite || false) })
   }
 
   // 获取文件夹列表
@@ -223,10 +225,7 @@ class DataService {
 
 
 
-  // 生成唯一ID
-  private generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2)
-  }
+
 }
 
 // 创建单例实例

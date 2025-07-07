@@ -21,25 +21,26 @@ const imageLoaded = ref(false)
 const imageError = ref(false)
 
 // 格式化文件大小
-const formatFileSize = (bytes: string | undefined) => {
-  if (!bytes) return '未知大小'
-  const size = parseInt(bytes)
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
+const formatFileSize = (size: string | number) => {
+  const bytes = typeof size === 'string' ? parseInt(size) || 0 : size
+  if (bytes === 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 // 获取文件扩展名
 const getFileExtension = computed(() => {
-  const ext = props.image.name.split('.').pop()?.toUpperCase()
+  const name = props.image.name || props.image.title
+  const ext = name.split('.').pop()?.toUpperCase()
   return ext || 'IMAGE'
 })
 
 // 查看图片
 const viewImage = async () => {
   try {
-    const result = await window.api.openFileWithDefaultApp(props.image.path)
+    const result = await (window as any).api.openFileWithDefaultApp(props.image.path)
     if (result.success) {
       // 增加查看次数
       const updatedImage = videoStore.incrementPlayCount(props.image.id)
@@ -102,7 +103,7 @@ watch(
             console.error('- 原始路径:', image.path); 
             console.error('- 转换后URL:', `local-image://${image.path.replace(/\\/g, '/')}`); 
             console.error('- 错误事件:', event); 
-            console.error('- 图片元素src:', event.target?.src); 
+            console.error('- 图片元素src:', (event.target as HTMLImageElement)?.src); 
           }"
         />
         

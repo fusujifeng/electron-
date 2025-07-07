@@ -150,11 +150,7 @@ const removeTag = (index: number) => {
   emitUpdate()
 }
 
-// 开始编辑标签
-const startEdit = (index: number) => {
-  editingIndex.value = index
-  editingTag.value = tags.value[index]
-}
+
 
 // 保存编辑
 const saveEdit = () => {

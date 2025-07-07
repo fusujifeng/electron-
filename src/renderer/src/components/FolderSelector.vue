@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 
 interface Props {
   selectedFolder: string
@@ -16,7 +16,7 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const showTooltip = ref(false)
+
 
 // 格式化文件夹路径显示
 const displayPath = computed(() => {
@@ -51,7 +51,7 @@ const folderName = computed(() => {
 const selectFolder = async () => {
   try {
     // 使用自定义的 dialog API 选择文件夹
-    const result = await window.api?.showOpenDialog({
+    const result = await (window as any).api?.showOpenDialog({
       properties: ['openDirectory'],
       title: '选择视频文件夹'
     })
@@ -95,7 +95,7 @@ const openInExplorer = () => {
   if (!props.selectedFolder) return
   
   // 通过 Electron 的 IPC 调用打开文件管理器
-  window.electron?.shell?.openPath(props.selectedFolder)
+  (window as any).api?.openInExplorer?.(props.selectedFolder)
 }
 </script>
 

@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
+// @ts-ignore
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({

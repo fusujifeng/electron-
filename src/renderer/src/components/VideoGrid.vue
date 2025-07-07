@@ -72,7 +72,7 @@ const filteredVideos = computed(() => {
   if (props.sortBy) {
     switch (props.sortBy) {
       case 'name':
-        result = result.sort((a, b) => a.name.localeCompare(b.name))
+        result = result.sort((a, b) => (a.name || a.title).localeCompare(b.name || b.title))
         break
       case 'size-desc':
         result = result.sort((a, b) => {
@@ -97,7 +97,7 @@ const filteredVideos = computed(() => {
         break
       default:
         // 默认按名称排序
-        result = result.sort((a, b) => a.name.localeCompare(b.name))
+        result = result.sort((a, b) => (a.name || a.title).localeCompare(b.name || b.title))
     }
   }
   
@@ -178,7 +178,7 @@ const updateMasonryLayout = () => {
   videoColumns.value = new Array(columns.value).fill(null).map(() => [])
   
   // 将视频分配到各列
-  visibleVideos.value.forEach((video) => {
+  visibleVideos.value?.forEach((video) => {
     // 找到高度最小的列
     const minHeightIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value))
     

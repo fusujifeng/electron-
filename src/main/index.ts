@@ -135,19 +135,48 @@ app.whenReady().then(() => {
   })
 
   // IPC handlers
-  ipcMain.handle('dialog:openDirectory', async (event, options) => {
+  ipcMain.handle('dialog:openDirectory', async (_event, options) => {
     const result = await dialog.showOpenDialog(options)
     return result
   })
 
+  // 选择文件夹
+  ipcMain.handle('dialog:selectFolder', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        title: '选择视频文件夹'
+      })
+      
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: 'User canceled' }
+      }
+      
+      return { success: true, folderPath: result.filePaths[0] }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // 在文件管理器中打开
+  ipcMain.handle('open-in-explorer', async (_event, folderPath: string) => {
+    try {
+      await shell.openPath(folderPath)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to open in explorer:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
   // 使用系统默认应用程序打开文件
-  ipcMain.handle('open-file-with-default-app', async (event, filePath: string) => {
+  ipcMain.handle('open-file-with-default-app', async (_event, filePath: string) => {
     try {
       await shell.openPath(filePath)
       return { success: true }
     } catch (error) {
       console.error('Failed to open file:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: (error as Error).message }
     }
   })
 
@@ -214,7 +243,7 @@ app.whenReady().then(() => {
   }
 
   // 扫描文件夹中的视频文件和子文件夹
-  ipcMain.handle('scan-folder', async (event, folderPath: string) => {
+  ipcMain.handle('scan-folder', async (_event, folderPath: string) => {
     try {
       const items: Array<{type: 'folder' | 'video' | 'image', name: string, path: string, size?: number, isDirectory: boolean, coverImage?: string}> = []
       
@@ -264,7 +293,7 @@ app.whenReady().then(() => {
       return { success: true, items }
     } catch (error) {
       console.error('Failed to scan folder:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: (error as Error).message }
     }
   })
 

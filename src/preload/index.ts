@@ -5,7 +5,9 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:openDirectory', options),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('scan-folder', folderPath),
-  openFileWithDefaultApp: (filePath: string) => ipcRenderer.invoke('open-file-with-default-app', filePath)
+  openFileWithDefaultApp: (filePath: string) => ipcRenderer.invoke('open-file-with-default-app', filePath),
+  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -8,11 +8,7 @@ import TagManager from './components/TagManager.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
 
-interface Category {
-  id: string
-  name: string
-  count: number
-}
+
 
 // 使用 Pinia store
 const videoStore = useVideoStore()
@@ -84,6 +80,18 @@ const selectFolder = async (folderPath?: string) => {
   }
 }
 
+// 处理文件夹选择按钮点击
+const handleSelectFolderClick = async () => {
+  try {
+    const result = await (window as any).api?.selectFolder()
+    if (result?.success && result.folderPath) {
+      await selectFolder(result.folderPath as string)
+    }
+  } catch (error) {
+    console.error('选择文件夹失败:', error)
+  }
+}
+
 // 刷新文件夹
 const refreshFolder = async () => {
   if (selectedFolder.value) {
@@ -107,7 +115,7 @@ const loadVideos = async () => {
     console.log('已清空现有数据')
 
     // 扫描选择的文件夹
-    const result = await window.api?.scanFolder(selectedFolder.value)
+    const result = await (window as any).api?.scanFolder(selectedFolder.value)
     console.log('扫描结果:', result)
 
     if (result?.success && result.items) {
@@ -189,14 +197,7 @@ const loadVideos = async () => {
   }
 }
 
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+
 
 // 根据文件名检测分类
 const detectCategory = (filename: string): string => {
@@ -245,12 +246,7 @@ const goBack = async () => {
   }
 }
 
-// 处理双击文件夹进入
-const handleFolderDoubleClick = async (folderItem: Video) => {
-  if (folderItem.isFolder) {
-    await handleFolderSelect(folderItem.path)
-  }
-}
+
 
 // 清空导航历史
 const clearNavigationHistory = () => {
@@ -270,7 +266,7 @@ const handleCategoryChange = (categoryId: string) => {
 }
 
 // 处理视频更新
-const handleVideoUpdate = (updatedVideo: Video) => {
+const handleVideoUpdate = (_updatedVideo: Video) => {
   // Pinia store 会自动响应更新，无需手动刷新
 }
 
@@ -337,7 +333,7 @@ const getPreviewImageSrc = (video: Video) => {
 // 检测是否为最深层文件夹（没有子文件夹）
 const checkIsDeepestFolder = async (folderPath: string) => {
   try {
-    const result = await window.api?.scanFolder(folderPath)
+    const result = await (window as any).api?.scanFolder(folderPath)
     if (result?.success && result.items) {
       // 检查是否有子文件夹
       const hasSubfolders = result.items.some(item => item.type === 'folder')
@@ -411,7 +407,7 @@ onUnmounted(() => {
               <!-- 文件夹选择按钮（当没有选择文件夹时显示） -->
               <button
                 v-if="!selectedFolder"
-                @click="async () => { const result = await window.api?.selectFolder(); if (result?.success && result.folderPath) { await selectFolder(result.folderPath); } }"
+                @click="handleSelectFolderClick"
                 class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-600 rounded-xl transition-all duration-300 hover:scale-105 border border-purple-200 hover:border-purple-300 shadow-sm hover:shadow-md"
                 title="选择文件夹"
               >

@@ -46,19 +46,19 @@ watch(
 )
 
 // 格式化文件大小
-const formatFileSize = (bytes: string | undefined) => {
-  if (!bytes) return '未知大小'
-  const size = parseInt(bytes)
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
+const formatFileSize = (size: string | number) => {
+  const bytes = typeof size === 'string' ? parseInt(size) || 0 : size
+  if (bytes === 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 // 格式化时长
-const formatDuration = (duration: string | undefined) => {
+const formatDuration = (duration: number | string | undefined) => {
   if (!duration) return '未知时长'
-  const seconds = parseInt(duration)
+  const seconds = typeof duration === 'string' ? parseInt(duration) : duration
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const secs = seconds % 60
@@ -69,11 +69,7 @@ const formatDuration = (duration: string | undefined) => {
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
-// 获取文件扩展名
-const getFileExtension = computed(() => {
-  const ext = props.video.name.split('.').pop()?.toUpperCase()
-  return ext || 'VIDEO'
-})
+
 
 // 处理单击事件
 const handleClick = () => {
@@ -90,7 +86,7 @@ const handleDoubleClick = async () => {
     emit('folder-select', props.video.path)
     return
   }
-  
+
   // 否则播放文件
   await playVideo()
 }
@@ -100,7 +96,7 @@ const playVideo = async () => {
   if (props.video.category === 'image') {
     // 对于图片，使用系统默认应用打开
     try {
-      const result = await window.api.openFileWithDefaultApp(props.video.path)
+      const result = await (window as any).api.openFileWithDefaultApp(props.video.path)
       if (result.success) {
         // 增加查看次数
         const updatedVideo = videoStore.incrementPlayCount(props.video.id)
@@ -116,7 +112,7 @@ const playVideo = async () => {
   } else {
     // 对于视频，使用系统默认播放器打开
     try {
-      const result = await window.api.openFileWithDefaultApp(props.video.path)
+      const result = await (window as any).api.openFileWithDefaultApp(props.video.path)
       if (result.success) {
         // 增加播放次数
         const updatedVideo = videoStore.incrementPlayCount(props.video.id)
@@ -146,7 +142,7 @@ const playVideo = async () => {
 
 // 显示详情
 const showDetails = () => {
-  console.log('显示详情:', props.video.name)
+  console.log('显示详情:', props.video.name || props.video.title)
 }
 
 // 切换收藏状态
@@ -160,7 +156,7 @@ const toggleFavorite = () => {
 
 // 编辑视频信息
 const editVideo = () => {
-  console.log('编辑视频:', props.video.name)
+  console.log('编辑视频:', props.video.name || props.video.title)
 }
 
 // 处理预览图上传
@@ -199,12 +195,12 @@ const toggleImageUpload = () => {
 // 获取图片源URL
 const getImageSrc = (video: Video) => {
   if (!video.thumbnail) return ''
-  
+
   // 如果是blob URL或绝对路径，直接返回
   if (video.thumbnail.startsWith('blob:') || video.thumbnail.startsWith('/')) {
     return video.thumbnail
   }
-  
+
   // 如果已经是 local-image:// 协议，检查是否需要解码
   if (video.thumbnail.startsWith('local-image://')) {
     const url = video.thumbnail
@@ -220,7 +216,7 @@ const getImageSrc = (video: Video) => {
     }
     return url
   }
-  
+
   // 否则构建 local-image:// URL
   return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
 }
@@ -240,7 +236,7 @@ const getImageSrc = (video: Video) => {
       <div v-if="showImageUpload" class="absolute inset-0 z-20 bg-white">
         <ImageUpload
           :thumbnail="video.thumbnail"
-          :alt="video.name"
+          :alt="video.name || video.title"
           @upload="handleThumbnailUpload"
           @remove="handleThumbnailRemove"
           @error="handleUploadError"
@@ -269,18 +265,18 @@ const getImageSrc = (video: Video) => {
           :alt="video.name"
           class="w-full h-auto object-contain"
            style="max-height: 100%; max-width: 100%;"
-          @load="() => { 
-            imageLoaded = true; 
-            console.log('图片加载成功:', video.name, '路径:', video.thumbnail); 
+          @load="() => {
+            imageLoaded = true;
+            console.log('图片加载成功:', video.name || video.title, '路径:', video.thumbnail);
           }"
-          @error="(event) => { 
-            console.error('图片加载失败详情:'); 
-            console.error('- 文件名:', video.name); 
-            console.error('- 原始缩略图路径:', video.thumbnail); 
-            console.error('- 转换后URL:', getImageSrc(video)); 
-            console.error('- 错误事件:', event); 
-            console.error('- 图片元素src:', event.target?.src); 
-            console.error('- category:', video.category, 'isFolder:', video.isFolder); 
+          @error="(event) => {
+            console.error('图片加载失败详情:');
+            console.error('- 文件名:', video.name || video.title);
+            console.error('- 原始缩略图路径:', video.thumbnail);
+            console.error('- 转换后URL:', getImageSrc(video));
+            console.error('- 错误事件:', event);
+            console.error('- 图片元素src:', (event.target as HTMLImageElement)?.src);
+            console.error('- category:', video.category, 'isFolder:', video.isFolder);
             // 不设置imageError，让图片继续显示，可能是临时网络问题
           }"
         />
@@ -445,7 +441,7 @@ const getImageSrc = (video: Video) => {
       <!-- 标题 -->
       <h3
         class="font-semibold text-gray-800 text-sm line-clamp-2 mb-3 group-hover:text-pink-600 transition-colors leading-relaxed"
-        :title="video.name"
+        :title="video.name || video.title"
       >
         {{ video.title || video.name }}
       </h3>
@@ -492,17 +488,17 @@ const getImageSrc = (video: Video) => {
       <!-- 标签 -->
       <div v-if="displayTags.length > 0" class="flex flex-wrap gap-2 mb-4">
         <span
-          v-for="tag in displayTags.slice(0, 3)"
+          v-for="tag in displayTags.slice(0, 6)"
           :key="tag"
           class="inline-block bg-gradient-to-r from-pink-100 to-red-100 text-pink-700 text-xs px-3 py-1.5 rounded-full font-medium border border-pink-200"
         >
           # {{ tag }}
         </span>
         <span
-          v-if="displayTags.length > 3"
+          v-if="displayTags.length > 6"
           class="inline-block text-pink-400 text-xs px-2 py-1 bg-pink-50 rounded-full font-medium"
         >
-          +{{ displayTags.length - 3 }}
+          +{{ displayTags.length - 6 }}
         </span>
       </div>
 
