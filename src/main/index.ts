@@ -1,9 +1,10 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, protocol, clipboard, nativeImage } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol, clipboard, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import * as fs from 'fs'
 import * as path from 'path'
+import * as crypto from 'crypto'
 
 // 支持的视频格式
 const VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ts']
@@ -65,11 +66,18 @@ app.whenReady().then(() => {
 
   // 注册自定义协议来处理本地图片文件
   protocol.registerFileProtocol('local-image', (request, callback) => {
-    const url = request.url.substring(13) // 移除 'local-image://' 前缀
+    let url = request.url.substring(13) // 移除 'local-image://' 前缀
     
     console.log('=== Local-image Protocol Request ===');
     console.log('原始URL:', request.url);
     console.log('提取的路径:', url);
+    
+    // 移除URL参数（如时间戳）
+    const questionMarkIndex = url.indexOf('?');
+    if (questionMarkIndex !== -1) {
+      url = url.substring(0, questionMarkIndex);
+      console.log('移除参数后的路径:', url);
+    }
     
     // 解码URL并处理路径
     let filePath = url;
@@ -184,8 +192,6 @@ app.whenReady().then(() => {
   const findCoverImage = async (folderPath: string, folderName: string): Promise<string | null> => {
     try {
       const files = await fs.promises.readdir(folderPath)
-      console.log(`Finding cover image - Folder: ${folderPath}, Name: ${folderName}`)
-      console.log(`Files in folder:`, files)
       
       // 查找名为"标题的图片"的文件
       for (const file of files) {
@@ -194,7 +200,6 @@ app.whenReady().then(() => {
         
         if (IMAGE_EXTENSIONS.includes(fileExt) && fileName === '标题的图片') {
           const coverPath = path.join(folderPath, file)
-          console.log(`Found title image: ${coverPath}`)
           return coverPath
         }
       }
@@ -206,7 +211,6 @@ app.whenReady().then(() => {
         
         if (IMAGE_EXTENSIONS.includes(fileExt) && fileName === '图片') {
           const coverPath = path.join(folderPath, file)
-          console.log(`Found image file: ${coverPath}`)
           return coverPath
         }
       }
@@ -218,7 +222,6 @@ app.whenReady().then(() => {
         
         if (IMAGE_EXTENSIONS.includes(fileExt) && fileName === folderName.toLowerCase()) {
           const coverPath = path.join(folderPath, file)
-          console.log(`Found same-name image: ${coverPath}`)
           return coverPath
         }
       }
@@ -226,15 +229,12 @@ app.whenReady().then(() => {
       // 如果还没找到，返回第一个图片文件
       for (const file of files) {
         const fileExt = path.extname(file).toLowerCase()
-        console.log(`Checking file: ${file}, Extension: ${fileExt}, Is image: ${IMAGE_EXTENSIONS.includes(fileExt)}`)
         if (IMAGE_EXTENSIONS.includes(fileExt)) {
           const coverPath = path.join(folderPath, file)
-          console.log(`Found first image: ${coverPath}`)
           return coverPath
         }
       }
       
-      console.log(`No image files found`)
       return null
     } catch (error) {
       console.error('Failed to find cover image:', error)
@@ -300,11 +300,8 @@ app.whenReady().then(() => {
   // 保存剪贴板图片到文件夹
   ipcMain.handle('save-clipboard-image', async (_event, folderPath: string) => {
     try {
-      console.log('开始保存剪贴板图片到:', folderPath)
-      
       // 检查文件夹是否存在
       if (!fs.existsSync(folderPath)) {
-        console.error('目标文件夹不存在:', folderPath)
         return { success: false, error: '目标文件夹不存在' }
       }
       
@@ -312,25 +309,15 @@ app.whenReady().then(() => {
       try {
         await fs.promises.access(folderPath, fs.constants.W_OK)
       } catch (accessError) {
-        console.error('文件夹没有写入权限:', folderPath)
         return { success: false, error: '文件夹没有写入权限' }
       }
       
       // 获取剪贴板中的图片
       const image = clipboard.readImage()
-      console.log('剪贴板图片是否为空:', image.isEmpty())
       
       if (image.isEmpty()) {
-        // 检查剪贴板中是否有其他格式的内容
-        const hasText = clipboard.readText().length > 0
-        const hasHTML = clipboard.readHTML().length > 0
-        console.log('剪贴板内容检查 - 文本:', hasText, '- HTML:', hasHTML)
         return { success: false, error: '剪贴板中没有图片，请先复制图片到剪贴板' }
       }
-      
-      // 获取图片尺寸信息
-      const size = image.getSize()
-      console.log('剪贴板图片尺寸:', size.width, 'x', size.height)
       
       // 生成文件名（使用时间戳）
       const now = new Date()
@@ -343,11 +330,8 @@ app.whenReady().then(() => {
       const fileName = `clipboard-image-${timestamp}.png`
       const filePath = path.join(folderPath, fileName)
       
-      console.log('准备保存到:', filePath)
-      
       // 将图片保存为PNG格式
       const buffer = image.toPNG()
-      console.log('PNG缓冲区大小:', buffer.length, 'bytes')
       
       if (buffer.length === 0) {
         return { success: false, error: '图片转换失败，无法生成PNG数据' }
@@ -361,9 +345,6 @@ app.whenReady().then(() => {
         return { success: false, error: '文件保存失败，无法创建文件' }
       }
       
-      const savedFileStats = await fs.promises.stat(filePath)
-      console.log('文件保存成功:', filePath, '大小:', savedFileStats.size, 'bytes')
-      
       return { success: true, filePath, fileName }
     } catch (error) {
       console.error('保存剪贴板图片时发生异常:', error)
@@ -375,18 +356,14 @@ app.whenReady().then(() => {
   // 删除文件
   ipcMain.handle('delete-file', async (_event, filePath: string) => {
     try {
-      console.log('开始删除文件:', filePath)
-      
       // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
-        console.error('文件不存在:', filePath)
         return { success: false, error: '文件不存在' }
       }
       
       // 检查是否为文件（而不是文件夹）
       const stats = await fs.promises.stat(filePath)
       if (!stats.isFile()) {
-        console.error('目标不是文件:', filePath)
         return { success: false, error: '目标不是文件' }
       }
       
@@ -399,12 +376,92 @@ app.whenReady().then(() => {
         return { success: false, error: '文件删除失败，文件仍然存在' }
       }
       
-      console.log('文件删除成功:', filePath)
       return { success: true }
     } catch (error) {
       console.error('删除文件时发生异常:', error)
       const errorMessage = error instanceof Error ? error.message : '未知错误'
       return { success: false, error: `删除失败: ${errorMessage}` }
+    }
+  })
+
+  // 带重试机制的文件重命名函数
+  const renameWithRetry = async (oldPath: string, newPath: string, maxRetries: number = 3, delay: number = 100): Promise<void> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await fs.promises.rename(oldPath, newPath)
+        return // 成功则直接返回
+      } catch (error: any) {
+        // 如果是EBUSY错误且还有重试次数，则等待后重试
+        if (error.code === 'EBUSY' && attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay))
+          delay *= 2 // 指数退避，下次等待时间翻倍
+        } else {
+          // 最后一次尝试失败或非EBUSY错误，抛出异常
+          throw error
+        }
+      }
+    }
+  }
+
+  // 设置图片为封面（复制为"标题的图片"）
+  ipcMain.handle('set-as-cover', async (_event, imagePath: string) => {
+    try {
+      // 检查文件是否存在
+      if (!fs.existsSync(imagePath)) {
+        return { success: false, error: '图片文件不存在' }
+      }
+      
+      // 检查是否为文件
+      const stats = await fs.promises.stat(imagePath)
+      if (!stats.isFile()) {
+        return { success: false, error: '目标不是文件' }
+      }
+      
+      // 检查是否为图片文件
+      const fileExt = path.extname(imagePath).toLowerCase()
+      if (!IMAGE_EXTENSIONS.includes(fileExt)) {
+        return { success: false, error: '文件不是支持的图片格式' }
+      }
+      
+      // 获取文件夹路径和新文件名
+      const folderPath = path.dirname(imagePath)
+      const newFileName = `标题的图片${fileExt}`
+      const newFilePath = path.join(folderPath, newFileName)
+      
+      // 如果源文件已经是"标题的图片"，则无需操作
+      if (newFilePath === imagePath) {
+        return { success: true, message: '该图片已经是封面图片' }
+      }
+      
+      // 如果目标文件已存在，先将其重命名为10位随机数字
+      if (fs.existsSync(newFilePath)) {
+        const randomNumber = Math.floor(Math.random() * 10000000000).toString().padStart(10, '0')
+        const existingFileExt = path.extname(newFilePath)
+        const randomFileName = `${randomNumber}${existingFileExt}`
+        const randomFilePath = path.join(folderPath, randomFileName)
+        
+        await renameWithRetry(newFilePath, randomFilePath)
+      }
+      
+      // 将选中的图片重命名为"标题的图片"（使用重试机制）
+      await renameWithRetry(imagePath, newFilePath)
+      
+      // 验证重命名是否成功
+      if (!fs.existsSync(newFilePath)) {
+        return { success: false, error: '重命名失败，新文件不存在' }
+      }
+      
+      return { success: true, newPath: newFilePath }
+    } catch (error: any) {
+      console.error('设置封面时发生异常:', error)
+      let errorMessage = error instanceof Error ? error.message : '未知错误'
+      
+      // 针对EBUSY错误提供更友好的错误信息
+      if (error.code === 'EBUSY') {
+        errorMessage = '文件正在被其他程序使用，请关闭可能占用该文件的程序（如图片查看器）后重试'
+      }
+      
+      return { success: false, error: `设置封面失败: ${errorMessage}` }
     }
   })
 

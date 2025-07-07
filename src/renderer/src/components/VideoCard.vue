@@ -199,6 +199,7 @@ const getImageSrc = (video: Video) => {
     return video.thumbnail
   }
 
+  let baseUrl = ''
   // 如果已经是 local-image:// 协议，检查是否需要解码
   if (video.thumbnail.startsWith('local-image://')) {
     const url = video.thumbnail
@@ -206,17 +207,21 @@ const getImageSrc = (video: Video) => {
     if (url.includes('%')) {
       try {
         const decodedPath = decodeURIComponent(url.replace('local-image://', ''))
-        return `local-image://${decodedPath}`
+        baseUrl = `local-image://${decodedPath}`
       } catch (e) {
         console.warn('URL解码失败，使用原始URL:', url)
-        return url
+        baseUrl = url
       }
+    } else {
+      baseUrl = url
     }
-    return url
+  } else {
+    // 否则构建 local-image:// URL
+    baseUrl = `local-image://${video.thumbnail.replace(/\\/g, '/')}`
   }
 
-  // 否则构建 local-image:// URL
-  return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
+  // 添加时间戳防止缓存
+  return `${baseUrl}?t=${Date.now()}`
 }
 </script>
 

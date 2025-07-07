@@ -427,7 +427,14 @@ const handleContextMenu = (event: MouseEvent) => {
     
     // 如果找到了有效的本地图片
     if (imageElement && imageElement.src && imageElement.src.startsWith('local-image://')) {
-      const decodedPath = decodeURIComponent(imageElement.src.replace('local-image://', ''))
+      // 移除 local-image:// 前缀和可能的时间戳参数
+      let srcPath = imageElement.src.replace('local-image://', '')
+      // 移除时间戳参数（如 ?t=1234567890）
+      const queryIndex = srcPath.indexOf('?')
+      if (queryIndex !== -1) {
+        srcPath = srcPath.substring(0, queryIndex)
+      }
+      const decodedPath = decodeURIComponent(srcPath)
       
       // 修复Windows路径格式
       let fixedPath = decodedPath
@@ -524,15 +531,25 @@ const setAsCover = async () => {
   }
   
   try {
-    // 这里可以添加设置封面的逻辑
-    // 目前只是显示成功提示
-    const fileName = selectedImagePath.value.split('\\').pop() || ''
-    showToast(`✅ 已设置 "${fileName}" 为文件夹封面`, 'success')
+    console.log('设置封面:', selectedImagePath.value)
+    const result = await window.api.setAsCover(selectedImagePath.value)
     
-    // 刷新文件夹以更新封面显示
-    await loadVideos()
+    if (result.success) {
+      if (result.message) {
+        showToast(result.message, 'info')
+      } else {
+        const fileName = selectedImagePath.value.split('\\').pop() || ''
+        showToast(`✅ 已设置 "${fileName}" 为文件夹封面`, 'success')
+      }
+      
+      // 刷新文件夹以更新封面显示
+      await loadVideos()
+    } else {
+      console.error('设置封面失败:', result.error)
+      showToast(result.error || '❌ 设置封面失败', 'error')
+    }
   } catch (error) {
-    console.error('设置封面失败:', error)
+    console.error('设置封面异常:', error)
     showToast('❌ 设置封面失败', 'error')
   }
 }

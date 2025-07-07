@@ -9,7 +9,8 @@ const api = {
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath),
   saveClipboardImage: (folderPath: string) => ipcRenderer.invoke('save-clipboard-image', folderPath),
-  deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath)
+  deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
+  setAsCover: (imagePath: string) => ipcRenderer.invoke('set-as-cover', imagePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

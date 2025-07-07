@@ -89,7 +89,7 @@ watch(
       <!-- 图片显示 -->
       <div class="w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105" style="min-height: 200px; max-height: 400px;">
         <img 
-          :src="`local-image://${image.path.replace(/\\/g, '/')}`"
+          :src="`local-image://${image.path.replace(/\\/g, '/')}?t=${Date.now()}`"
           :alt="image.name"
           class="w-full h-auto object-contain"
           style="max-height: 100%; max-width: 100%;"
