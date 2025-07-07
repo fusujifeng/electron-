@@ -7,7 +7,8 @@ const api = {
   scanFolder: (folderPath: string) => ipcRenderer.invoke('scan-folder', folderPath),
   openFileWithDefaultApp: (filePath: string) => ipcRenderer.invoke('open-file-with-default-app', filePath),
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
-  openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath)
+  openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath),
+  saveClipboardImage: (folderPath: string) => ipcRenderer.invoke('save-clipboard-image', folderPath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

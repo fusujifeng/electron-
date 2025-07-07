@@ -25,6 +25,11 @@ const isLargeScreen = computed(() => windowWidth.value >= 1536) // 2xl breakpoin
 const isDeepestFolder = ref(false)
 const sortBy = ref('name') // 排序方式：name, size-desc, time-desc, time-asc
 
+// 右键菜单相关
+const showContextMenu = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuTarget = ref<string>('')
+
 // 排序选项
 const sortOptions = [
   { value: 'name', label: '按名称排序', icon: '🔤' },
@@ -419,10 +424,78 @@ const handleResize = () => {
   }
 }
 
+// 右键菜单处理
+const handleContextMenu = (event: MouseEvent) => {
+  // 只在选择了文件夹时显示右键菜单
+  if (!selectedFolder.value) return
+  
+  event.preventDefault()
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  contextMenuTarget.value = selectedFolder.value
+  showContextMenu.value = true
+}
+
+// 关闭右键菜单
+const closeContextMenu = () => {
+  showContextMenu.value = false
+}
+
+// 粘贴剪贴板图片
+const pasteClipboardImage = async () => {
+  closeContextMenu() // 关闭菜单
+  
+  if (!selectedFolder.value) {
+    alert('请先选择一个文件夹')
+    return
+  }
+  
+  console.log('开始粘贴剪贴板图片到文件夹:', selectedFolder.value)
+  
+  try {
+    const result = await window.api.saveClipboardImage(selectedFolder.value)
+    
+    console.log('保存剪贴板图片结果:', result)
+    
+    if (result?.success) {
+      console.log('剪贴板图片已保存:', result.fileName)
+      // 刷新文件夹以显示新添加的图片
+      await loadVideos()
+      // 显示成功提示
+      alert(`✅ 图片保存成功！\n文件名: ${result.fileName}`)
+    } else {
+      console.error('保存剪贴板图片失败:', result?.error)
+      
+      // 根据错误类型提供不同的提示
+      let errorMessage = result?.error || '未知错误'
+      if (errorMessage.includes('剪贴板中没有图片')) {
+        errorMessage = '❌ 剪贴板中没有图片\n\n请先复制图片到剪贴板：\n1. 使用QQ截图或其他工具截图\n2. 复制图片文件\n3. 然后再尝试粘贴'
+      } else if (errorMessage.includes('没有写入权限')) {
+        errorMessage = '❌ 文件夹没有写入权限\n\n请检查：\n1. 文件夹是否存在\n2. 是否有管理员权限\n3. 文件夹是否被其他程序占用'
+      } else if (errorMessage.includes('文件夹不存在')) {
+        errorMessage = '❌ 目标文件夹不存在\n\n请重新选择一个有效的文件夹'
+      }
+      
+      alert(errorMessage)
+    }
+  } catch (error) {
+    console.error('保存剪贴板图片时发生异常:', error)
+    alert('❌ 保存失败\n\n发生了意外错误，请：\n1. 检查剪贴板中是否有图片\n2. 确认文件夹路径正确\n3. 重启应用程序后重试')
+  }
+}
+
+// 点击其他地方关闭右键菜单
+const handleDocumentClick = () => {
+  if (showContextMenu.value) {
+    closeContextMenu()
+  }
+}
+
 // 组件挂载时初始化
 onMounted(async () => {
   // 添加窗口大小变化监听器
   window.addEventListener('resize', handleResize)
+  // 添加点击事件监听器（用于关闭右键菜单）
+  document.addEventListener('click', handleDocumentClick)
 
   // 加载上次选择的文件夹
   const lastFolder = videoStore.settings.lastSelectedFolder
@@ -437,6 +510,7 @@ onMounted(async () => {
 // 组件卸载时清理
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -608,6 +682,7 @@ onUnmounted(() => {
           'w-full': !isLargeScreen || !showPreviewPanel,
           'w-[66vw] mr-96': isLargeScreen && showPreviewPanel
         }"
+        @contextmenu="handleContextMenu"
       >
         <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
         <!-- 文件夹选择区域 -->
@@ -715,5 +790,24 @@ onUnmounted(() => {
         </div>
       </div>
   </main>
+
+    <!-- 右键菜单 -->
+    <div
+      v-if="showContextMenu"
+      class="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-32"
+      :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+      @click.stop
+    >
+      <button
+        v-if="isDeepestFolder"
+        @click="pasteClipboardImage"
+        class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+      >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+        </svg>
+        <span>粘贴图片</span>
+      </button>
+    </div>
   </div>
 </template>

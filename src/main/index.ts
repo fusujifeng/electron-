@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, protocol, clipboard, nativeImage } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -294,6 +294,81 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Failed to scan folder:', error)
       return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // 保存剪贴板图片到文件夹
+  ipcMain.handle('save-clipboard-image', async (_event, folderPath: string) => {
+    try {
+      console.log('开始保存剪贴板图片到:', folderPath)
+      
+      // 检查文件夹是否存在
+      if (!fs.existsSync(folderPath)) {
+        console.error('目标文件夹不存在:', folderPath)
+        return { success: false, error: '目标文件夹不存在' }
+      }
+      
+      // 检查文件夹是否可写
+      try {
+        await fs.promises.access(folderPath, fs.constants.W_OK)
+      } catch (accessError) {
+        console.error('文件夹没有写入权限:', folderPath)
+        return { success: false, error: '文件夹没有写入权限' }
+      }
+      
+      // 获取剪贴板中的图片
+      const image = clipboard.readImage()
+      console.log('剪贴板图片是否为空:', image.isEmpty())
+      
+      if (image.isEmpty()) {
+        // 检查剪贴板中是否有其他格式的内容
+        const hasText = clipboard.readText().length > 0
+        const hasHTML = clipboard.readHTML().length > 0
+        console.log('剪贴板内容检查 - 文本:', hasText, '- HTML:', hasHTML)
+        return { success: false, error: '剪贴板中没有图片，请先复制图片到剪贴板' }
+      }
+      
+      // 获取图片尺寸信息
+      const size = image.getSize()
+      console.log('剪贴板图片尺寸:', size.width, 'x', size.height)
+      
+      // 生成文件名（使用时间戳）
+      const now = new Date()
+      const timestamp = now.getFullYear() + 
+        String(now.getMonth() + 1).padStart(2, '0') + 
+        String(now.getDate()).padStart(2, '0') + '-' +
+        String(now.getHours()).padStart(2, '0') + 
+        String(now.getMinutes()).padStart(2, '0') + 
+        String(now.getSeconds()).padStart(2, '0')
+      const fileName = `clipboard-image-${timestamp}.png`
+      const filePath = path.join(folderPath, fileName)
+      
+      console.log('准备保存到:', filePath)
+      
+      // 将图片保存为PNG格式
+      const buffer = image.toPNG()
+      console.log('PNG缓冲区大小:', buffer.length, 'bytes')
+      
+      if (buffer.length === 0) {
+        return { success: false, error: '图片转换失败，无法生成PNG数据' }
+      }
+      
+      await fs.promises.writeFile(filePath, buffer)
+      
+      // 验证文件是否成功保存
+      const savedFileExists = fs.existsSync(filePath)
+      if (!savedFileExists) {
+        return { success: false, error: '文件保存失败，无法创建文件' }
+      }
+      
+      const savedFileStats = await fs.promises.stat(filePath)
+      console.log('文件保存成功:', filePath, '大小:', savedFileStats.size, 'bytes')
+      
+      return { success: true, filePath, fileName }
+    } catch (error) {
+      console.error('保存剪贴板图片时发生异常:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      return { success: false, error: `保存失败: ${errorMessage}` }
     }
   })
 
