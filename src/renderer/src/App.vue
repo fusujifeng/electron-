@@ -178,7 +178,7 @@ const loadVideos = async () => {
     }
 
     console.log('数据刷新完成，当前视频数量:', videoStore.videos.length)
-    
+
     // 检测是否为最深层文件夹
     await checkIsDeepestFolder(selectedFolder.value)
 
@@ -293,7 +293,7 @@ const handleFolderPreview = (video: Video) => {
     selectedPreviewImage.value = video
     showPreviewPanel.value = true
     console.log('显示文件夹预览:', video.name, '缩略图:', video.thumbnail)
-    
+
     // 检测是否为最深层文件夹
     checkIsDeepestFolder(video.path)
   }
@@ -371,7 +371,7 @@ const handleResize = () => {
 onMounted(async () => {
   // 添加窗口大小变化监听器
   window.addEventListener('resize', handleResize)
-  
+
   // 加载上次选择的文件夹
   const lastFolder = videoStore.settings.lastSelectedFolder
   if (lastFolder) {
@@ -453,11 +453,11 @@ onUnmounted(() => {
                 class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 title="刷新文件夹"
               >
-                <svg 
+                <svg
                   class="h-5 w-5 text-green-600 transition-transform duration-500 group-hover:rotate-180"
                   :class="{ 'animate-spin': isLoading }"
-                  fill="none" 
-                  stroke="currentColor" 
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -580,12 +580,12 @@ onUnmounted(() => {
         <div class="flex-1 p-4 bg-white overflow-y-auto">
           <div class="space-y-4">
             <!-- 文件夹预览图像 -->
-            <div class="w-full aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+            <div class="w-full h-[60vh]  bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
               <img
                 v-if="selectedPreviewImage.thumbnail && selectedPreviewImage.thumbnail !== '/folder-icon.svg'"
                 :src="getPreviewImageSrc(selectedPreviewImage)"
                 :alt="selectedPreviewImage.name"
-                class="w-full h-full object-cover"
+                class="w-full h-full object-contain  "
                 @error="() => {}"
               />
               <div v-else class="flex flex-col items-center justify-center text-gray-400">
@@ -595,7 +595,7 @@ onUnmounted(() => {
                 <span class="text-sm">暂无预览图</span>
               </div>
             </div>
-            
+
             <!-- 文件夹信息 -->
             <div class="flex items-center space-x-2">
               <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -606,7 +606,7 @@ onUnmounted(() => {
             <div class="text-xs text-gray-500 break-all">
               {{ selectedPreviewImage.path }}
             </div>
-            
+
             <!-- Tag管理组件 - 仅在最深层文件夹时显示 -->
             <div v-if="isDeepestFolder" class="mt-6">
               <div class="border-t border-gray-200 pt-4">
@@ -617,7 +617,7 @@ onUnmounted(() => {
                 />
               </div>
             </div>
-            
+
             <button
               @click="handleFolderSelect(selectedPreviewImage.path)"
               class="w-full mt-6 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
