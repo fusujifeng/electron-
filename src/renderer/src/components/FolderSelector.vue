@@ -4,11 +4,13 @@ import { ref, computed } from 'vue'
 interface Props {
   selectedFolder: string
   isLoading?: boolean
+  canGoBack?: boolean
 }
 
 interface Emits {
   (e: 'select', folderPath?: string): void
   (e: 'refresh'): void
+  (e: 'go-back'): void
 }
 
 const props = defineProps<Props>()
@@ -68,6 +70,11 @@ const selectFolder = async () => {
 // 刷新文件夹
 const refreshFolder = () => {
   emit('refresh')
+}
+
+// 返回上一级
+const goBack = () => {
+  emit('go-back')
 }
 
 // 复制路径到剪贴板
@@ -149,6 +156,19 @@ const openInExplorer = () => {
     
     <!-- 操作按钮 -->
     <div class="flex items-center space-x-2 flex-shrink-0">
+      <!-- 返回按钮 -->
+      <button
+        v-if="selectedFolder && canGoBack"
+        @click="goBack"
+        :disabled="isLoading"
+        class="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110"
+        title="返回上一级"
+      >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+      </button>
+      
       <!-- 刷新按钮 -->
       <button
         v-if="selectedFolder"

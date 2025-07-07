@@ -523,14 +523,16 @@ onUnmounted(() => {
       >
         <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
         <!-- 文件夹选择区域 -->
-        <div v-if="!selectedFolder" class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <FolderSelector
-            :selected-folder="selectedFolder"
-            :is-loading="isLoading"
-            @select="selectFolder"
-            @refresh="refreshFolder"
-          />
-        </div>
+      <div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <FolderSelector
+          :selected-folder="selectedFolder"
+          :is-loading="isLoading"
+          :can-go-back="canGoBack"
+          @select="selectFolder"
+          @refresh="refreshFolder"
+          @go-back="goBack"
+        />
+      </div>
 
         <!-- 视频网格 -->
         <VideoGrid

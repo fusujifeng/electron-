@@ -31,6 +31,8 @@ const columns = ref(4) // 默认4列
 const visibleVideos = ref<Video[]>()
 const loadedCount = ref(20) // 初始加载20个
 const isLoadingMore = ref(false)
+const columnHeights = ref<number[]>([]) // 每列的高度
+const videoColumns = ref<Video[][]>([]) // 分列的视频数组
 
 // 过滤后的视频列表
 const filteredVideos = computed(() => {
@@ -102,17 +104,13 @@ const filteredVideos = computed(() => {
   return result
 })
 
-// CSS Grid 响应式列数类
-const gridCols = computed(() => {
-  switch (columns.value) {
-    case 1: return 'grid-cols-1'
-    case 2: return 'grid-cols-2'
-    case 3: return 'grid-cols-3'
-    case 4: return 'grid-cols-4'
-    case 5: return 'grid-cols-5'
-    case 6: return 'grid-cols-6'
-    default: return 'grid-cols-4'
-  }
+// 瀑布流列宽计算
+const columnWidth = computed(() => {
+  if (!containerRef.value) return '25%'
+  const gap = 16 // gap-4 = 16px
+  const totalGap = (columns.value - 1) * gap
+  const availableWidth = containerRef.value.clientWidth - totalGap
+  return `${availableWidth / columns.value}px`
 })
 
 // 响应式列数调整
@@ -167,9 +165,30 @@ const handleFolderPreview = (video: Video) => {
   emit('folder-preview', video)
 }
 
-// 更新可见视频列表
+// 更新可见视频列表和瀑布流布局
 const updateVisibleVideos = () => {
   visibleVideos.value = filteredVideos.value.slice(0, loadedCount.value)
+  updateMasonryLayout()
+}
+
+// 更新瀑布流布局
+const updateMasonryLayout = () => {
+  // 初始化列数组和高度数组
+  columnHeights.value = new Array(columns.value).fill(0)
+  videoColumns.value = new Array(columns.value).fill(null).map(() => [])
+  
+  // 将视频分配到各列
+  visibleVideos.value.forEach((video) => {
+    // 找到高度最小的列
+    const minHeightIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value))
+    
+    // 将视频添加到该列
+    videoColumns.value[minHeightIndex].push(video)
+    
+    // 估算视频卡片高度（这里使用一个基础高度加上随机值来模拟不同高度）
+    const estimatedHeight = video.isFolder ? 200 : (video.category === 'image' ? 250 : 300)
+    columnHeights.value[minHeightIndex] += estimatedHeight + 16 // 16px gap
+  })
 }
 
 // 无限滚动检测
@@ -194,10 +213,18 @@ watch([() => props.videos, () => props.searchQuery, () => props.selectedCategory
   updateVisibleVideos()
 }, { deep: true })
 
+// 监听列数变化，重新布局
+watch(columns, () => {
+  updateMasonryLayout()
+})
+
 onMounted(() => {
   updateColumns()
   updateVisibleVideos()
-  window.addEventListener('resize', updateColumns)
+  window.addEventListener('resize', () => {
+    updateColumns()
+    updateMasonryLayout()
+  })
   window.addEventListener('scroll', handleScroll)
 })
 
@@ -220,30 +247,37 @@ onUnmounted(() => {
       </p>
     </div>
     
-    <!-- 瀑布流网格 -->
-    <div v-else class="grid gap-4" :class="gridCols">
+    <!-- 瀑布流布局 -->
+    <div v-else class="masonry-container" :style="{ gap: '16px' }">
       <div 
-        v-for="(video, index) in visibleVideos" 
-        :key="video.id"
-        class="video-item"
+        v-for="(columnVideos, columnIndex) in videoColumns" 
+        :key="columnIndex"
+        class="masonry-column"
+        :style="{ width: columnWidth }"
       >
-        <!-- 根据文件类型使用不同的组件 -->
-        <VideoCard 
-          v-if="video.category !== 'image'"
-          :video="video"
-          @update="handleVideoUpdate"
-          @play="handleVideoPlay"
-          @favorite="handleVideoFavorite"
-          @folder-select="handleFolderSelect"
-          @folder-preview="handleFolderPreview"
-        />
-        <ImgCard 
-          v-else
-          :image="video"
-          @update="handleVideoUpdate"
-          @view="handleVideoPlay"
-          @favorite="handleVideoFavorite"
-        />
+        <div 
+          v-for="video in columnVideos" 
+          :key="video.id"
+          class="video-item mb-4"
+        >
+          <!-- 根据文件类型使用不同的组件 -->
+          <VideoCard 
+            v-if="video.category !== 'image'"
+            :video="video"
+            @update="handleVideoUpdate"
+            @play="handleVideoPlay"
+            @favorite="handleVideoFavorite"
+            @folder-select="handleFolderSelect"
+            @folder-preview="handleFolderPreview"
+          />
+          <ImgCard 
+            v-else
+            :image="video"
+            @update="handleVideoUpdate"
+            @view="handleVideoPlay"
+            @favorite="handleVideoFavorite"
+          />
+        </div>
       </div>
       
       <!-- 加载更多指示器 -->
@@ -272,11 +306,38 @@ onUnmounted(() => {
   min-height: 400px;
 }
 
+.masonry-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.masonry-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .video-item {
   transition: all 0.3s ease;
+  break-inside: avoid;
+  width: 100%;
 }
 
 .video-item:hover {
   transform: translateY(-2px);
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .masonry-container {
+    flex-direction: column;
+  }
+  
+  .masonry-column {
+    width: 100% !important;
+    margin-bottom: 16px;
+  }
 }
 </style>
