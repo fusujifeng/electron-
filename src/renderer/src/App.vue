@@ -28,6 +28,11 @@ const sortBy = ref('name') // 排序方式：name, size-desc, time-desc, time-as
 // 右键菜单相关
 const showContextMenu = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
+
+// Toast通知相关
+const toastMessage = ref('')
+const toastType = ref<'success' | 'error' | 'info'>('success')
+const showToastNotification = ref(false)
 const contextMenuTarget = ref<string>('')
 
 // 排序选项
@@ -461,7 +466,7 @@ const pasteClipboardImage = async () => {
       // 刷新文件夹以显示新添加的图片
       await loadVideos()
       // 显示成功提示
-      alert(`✅ 图片保存成功！\n文件名: ${result.fileName}`)
+      showToast(`✅ 图片保存成功！文件名: ${result.fileName}`, 'success')
     } else {
       console.error('保存剪贴板图片失败:', result?.error)
       
@@ -490,6 +495,18 @@ const handleDocumentClick = () => {
   }
 }
 
+// Toast通知函数
+const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  toastMessage.value = message
+  toastType.value = type
+  showToastNotification.value = true
+  
+  // 3秒后自动隐藏
+  setTimeout(() => {
+    showToastNotification.value = false
+  }, 3000)
+}
+
 // 组件挂载时初始化
 onMounted(async () => {
   // 添加窗口大小变化监听器
@@ -516,6 +533,54 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen flex flex-col">
+    <!-- Toast通知 -->
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      enter-from-class="opacity-0 transform -translate-y-2"
+      enter-to-class="opacity-100 transform translate-y-0"
+      leave-active-class="transition-all duration-300 ease-in"
+      leave-from-class="opacity-100 transform translate-y-0"
+      leave-to-class="opacity-0 transform -translate-y-2"
+    >
+      <div
+        v-if="showToastNotification"
+        class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 min-w-[300px] max-w-[500px]"
+        :class="{
+          'bg-green-500 text-white': toastType === 'success',
+          'bg-red-500 text-white': toastType === 'error',
+          'bg-blue-500 text-white': toastType === 'info'
+        }"
+      >
+        <svg
+          v-if="toastType === 'success'"
+          class="h-5 w-5 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <svg
+          v-else-if="toastType === 'error'"
+          class="h-5 w-5 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <svg
+          v-else-if="toastType === 'info'"
+          class="h-5 w-5 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="text-sm font-medium">{{ toastMessage }}</span>
+      </div>
+    </Transition>
     <!-- 小红书风格头部导航 -->
     <header class="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-pink-100/50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
