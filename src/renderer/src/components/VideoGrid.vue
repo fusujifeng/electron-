@@ -117,17 +117,19 @@ const columnWidth = computed(() => {
 const updateColumns = () => {
   if (!containerRef.value) return
   
-  const width = containerRef.value.clientWidth
-  console.log('容器宽度:', width, '当前列数:', columns.value)
+  const width = containerRef.value?.offsetWidth || 0
   
-  if (width >= 1536) columns.value = 6      // 2xl
-  else if (width >= 1280) columns.value = 5 // xl
-  else if (width >= 1024) columns.value = 4 // lg
-  else if (width >= 768) columns.value = 3  // md
-  else if (width >= 640) columns.value = 2  // sm
-  else columns.value = 1                    // xs
-  
-  console.log('更新后列数:', columns.value)
+  if (width >= 1400) {
+    columns.value = 6
+  } else if (width >= 1200) {
+    columns.value = 5
+  } else if (width >= 900) {
+    columns.value = 4
+  } else if (width >= 600) {
+    columns.value = 3
+  } else {
+    columns.value = 2
+  }
 }
 
 // 加载更多视频

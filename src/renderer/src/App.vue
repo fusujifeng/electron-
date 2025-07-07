@@ -35,7 +35,6 @@ const selectedImagePath = ref<string>('') // 选中的图片路径
 const toastMessage = ref('')
 const toastType = ref<'success' | 'error' | 'info'>('success')
 const showToastNotification = ref(false)
-const contextMenuTarget = ref<string>('')
 
 // 排序选项
 const sortOptions = [
@@ -80,12 +79,10 @@ const categories = computed(() => {
 const selectFolder = async (folderPath?: string) => {
   try {
     if (folderPath) {
-      // 清空导航历史，因为这是用户主动选择的根文件夹
       clearNavigationHistory()
       selectedFolder.value = folderPath
       videoStore.updateSettings({ lastSelectedFolder: folderPath })
       await loadVideos()
-      console.log('已选择文件夹:', folderPath)
     }
   } catch (error) {
     console.error('选择文件夹失败:', error)
@@ -118,9 +115,10 @@ const exportData = () => {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    console.log('数据导出成功')
+    showToast('✅ 数据导出成功', 'success')
   } catch (error) {
     console.error('导出数据失败:', error)
+    showToast('❌ 数据导出失败', 'error')
   }
 }
 
@@ -139,16 +137,16 @@ const importData = () => {
             const jsonData = JSON.parse(e.target?.result as string)
             const success = videoStore.importData(jsonData)
             if (success) {
-              console.log('数据导入成功')
-              // 刷新界面
+              showToast('✅ 数据导入成功', 'success')
               if (selectedFolder.value) {
                 loadVideos()
               }
             } else {
-              console.error('导入数据失败')
+              showToast('❌ 导入数据失败', 'error')
             }
           } catch (error) {
             console.error('解析导入文件失败:', error)
+            showToast('❌ 解析导入文件失败', 'error')
           }
         }
         reader.readAsText(file)
@@ -157,6 +155,7 @@ const importData = () => {
     input.click()
   } catch (error) {
     console.error('导入数据失败:', error)
+    showToast('❌ 导入数据失败', 'error')
   }
 }
 
@@ -170,32 +169,22 @@ const refreshFolder = async () => {
 // 加载视频文件
 const loadVideos = async () => {
   if (!selectedFolder.value) {
-    console.log('没有选择文件夹，跳过加载')
     return
   }
 
   try {
-    console.log('开始加载文件夹:', selectedFolder.value)
     isLoading.value = true
-
-    // 清空现有数据
     videoStore.clearVideos()
-    console.log('已清空现有数据')
 
-    // 扫描选择的文件夹
     const result = await (window as any).api?.scanFolder(selectedFolder.value)
-    console.log('扫描结果:', result)
 
     if (result?.success && result.items) {
-      console.log('找到', result.items.length, '个项目')
-      // 处理扫描结果
       result.items.forEach(item => {
         if (item.type === 'video') {
-          // 添加视频文件
           const video = {
             id: `video_${Date.now()}_${Math.random()}`,
             name: item.name,
-            title: item.name.replace(/\.[^/.]+$/, ''), // 移除文件扩展名
+            title: item.name.replace(/\.[^/.]+$/, ''),
             path: item.path,
             thumbnail: '/default-thumbnail.jpg',
             duration: 0,
@@ -208,13 +197,11 @@ const loadVideos = async () => {
             isFolder: false
           }
           videoStore.addVideo(video)
-          console.log('添加视频:', video.title)
         } else if (item.type === 'folder') {
-          // 为文件夹创建一个特殊的"视频"项
           const folderItem = {
             id: `folder_${Date.now()}_${Math.random()}`,
             name: item.name,
-            title: item.name, // 直接使用文件夹名作为标题
+            title: item.name,
             path: item.path,
             thumbnail: item.coverImage ? `local-image://${encodeURIComponent(item.coverImage.replace(/\\/g, '/'))}` : '/folder-icon.svg',
             duration: 0,
@@ -227,13 +214,11 @@ const loadVideos = async () => {
             isFolder: true
           }
           videoStore.addVideo(folderItem)
-          console.log('添加文件夹:', folderItem.title, '封面:', item.coverImage || '默认图标')
         } else if (item.type === 'image') {
-          // 添加图片文件
           const image = {
             id: `image_${Date.now()}_${Math.random()}`,
             name: item.name,
-            title: item.name.replace(/\.[^/.]+$/, ''), // 移除文件扩展名
+            title: item.name.replace(/\.[^/.]+$/, ''),
             path: item.path,
             thumbnail: item.path,
             duration: 0,
@@ -246,16 +231,12 @@ const loadVideos = async () => {
             isFolder: false
           }
           videoStore.addVideo(image)
-          console.log('添加图片:', image.title, '路径:', image.path)
         }
       })
     } else {
       console.error('扫描文件夹失败:', result?.error)
     }
 
-    console.log('数据刷新完成，当前视频数量:', videoStore.videos.length)
-
-    // 检测是否为最深层文件夹
     await checkIsDeepestFolder(selectedFolder.value)
 
   } catch (error) {
@@ -340,25 +321,20 @@ const handleVideoUpdate = (_updatedVideo: Video) => {
 
 // 处理视频播放
 const handleVideoPlay = (video: Video) => {
-  console.log('播放视频:', video.name)
   // 这里可以调用 Electron 主进程来播放视频
   // window.electron.ipcRenderer.send('play-video', video.path)
 }
 
 // 处理视频收藏
 const handleVideoFavorite = (video: Video) => {
-  console.log('收藏状态变化:', video.name, video.isFavorite)
+  // 收藏状态变化处理
 }
 
 // 处理文件夹卡片点击预览
 const handleFolderPreview = (video: Video) => {
   if (video.isFolder) {
-    // 无论屏幕大小，单击文件夹都只显示预览，不进入文件夹
     selectedPreviewImage.value = video
     showPreviewPanel.value = true
-    console.log('显示文件夹预览:', video.name, '缩略图:', video.thumbnail)
-
-    // 检测是否为最深层文件夹
     checkIsDeepestFolder(video.path)
   }
 }
@@ -403,10 +379,8 @@ const checkIsDeepestFolder = async (folderPath: string) => {
   try {
     const result = await (window as any).api?.scanFolder(folderPath)
     if (result?.success && result.items) {
-      // 检查是否有子文件夹
       const hasSubfolders = result.items.some(item => item.type === 'folder')
       isDeepestFolder.value = !hasSubfolders
-      console.log('检测最深层文件夹:', folderPath, '是否为最深层:', !hasSubfolders)
     }
   } catch (error) {
     console.error('检测最深层文件夹失败:', error)
@@ -418,7 +392,6 @@ const checkIsDeepestFolder = async (folderPath: string) => {
 const handleFolderTagsUpdate = (tags: string[]) => {
   if (selectedPreviewImage.value?.path) {
     videoStore.setFolderTags(selectedPreviewImage.value.path, tags)
-    console.log('文件夹标签已更新:', selectedPreviewImage.value.path, tags)
   }
 }
 
@@ -440,14 +413,6 @@ const handleContextMenu = (event: MouseEvent) => {
   
   const target = event.target as HTMLElement
   
-  console.log('右键菜单事件触发:', {
-    target: target.tagName,
-    className: target.className,
-    src: (target as any).src,
-    parentElement: target.parentElement?.tagName,
-    parentClassName: target.parentElement?.className
-  })
-  
   // 检查是否点击的是图片卡片
   const imgCard = target.closest('[data-img-card]')
   // 检查是否点击的是视频卡片
@@ -458,46 +423,22 @@ const handleContextMenu = (event: MouseEvent) => {
     event.preventDefault()
     
     // 查找卡片内的图片元素来获取路径
-    let imageElement: HTMLImageElement | null = null
-    let imageSrc = ''
-    
-    // 优先查找卡片内的图片
-    imageElement = imgCard.querySelector('img')
-    if (imageElement) {
-      imageSrc = imageElement.src
-      console.log('在图片卡片中找到图片:', imageSrc)
-    }
+    const imageElement = imgCard.querySelector('img')
     
     // 如果找到了有效的本地图片
-    if (imageElement && imageSrc && imageSrc.startsWith('local-image://')) {
-      console.log('检测到有效的本地图片:', imageSrc)
-      const decodedPath = decodeURIComponent(imageSrc.replace('local-image://', ''))
+    if (imageElement && imageElement.src && imageElement.src.startsWith('local-image://')) {
+      const decodedPath = decodeURIComponent(imageElement.src.replace('local-image://', ''))
       selectedImagePath.value = decodedPath.replace(/\//g, '\\')
-      contextMenuType.value = 'image'
-      console.log('设置为图片菜单（图片卡片内）:', selectedImagePath.value)
     } else {
-      // 图片卡片内但没有有效图片，仍然显示图片菜单但路径为空
-      contextMenuType.value = 'image'
       selectedImagePath.value = ''
-      console.log('设置为图片菜单（图片卡片内，无有效图片）')
     }
     
-    // 设置菜单位置
-    contextMenuPosition.value = {
-      x: event.clientX,
-      y: event.clientY
-    }
-    
+    contextMenuType.value = 'image'
+    contextMenuPosition.value = { x: event.clientX, y: event.clientY }
     showContextMenu.value = true
     
-    console.log('右键菜单最终状态:', {
-      type: contextMenuType.value,
-      position: contextMenuPosition.value,
-      imagePath: selectedImagePath.value
-    })
   } else if (videoCard) {
     // 在视频卡片内部，不显示任何菜单（无反应）
-    console.log('右击视频卡片，无反应')
     return
   } else {
     // 在卡片外部的空白区域，显示粘贴菜单
@@ -505,21 +446,8 @@ const handleContextMenu = (event: MouseEvent) => {
     
     contextMenuType.value = 'paste'
     selectedImagePath.value = ''
-    console.log('设置为粘贴菜单（卡片外空白区域）')
-    
-    // 设置菜单位置
-    contextMenuPosition.value = {
-      x: event.clientX,
-      y: event.clientY
-    }
-    
+    contextMenuPosition.value = { x: event.clientX, y: event.clientY }
     showContextMenu.value = true
-    
-    console.log('右键菜单最终状态:', {
-      type: contextMenuType.value,
-      position: contextMenuPosition.value,
-      imagePath: selectedImagePath.value
-    })
   }
 }
 
@@ -530,29 +458,20 @@ const closeContextMenu = () => {
 
 // 粘贴剪贴板图片
 const pasteClipboardImage = async () => {
-  closeContextMenu() // 关闭菜单
+  closeContextMenu()
   
   if (!selectedFolder.value) {
-    alert('请先选择一个文件夹')
+    showToast('❌ 请先选择一个文件夹', 'error')
     return
   }
-  
-  console.log('开始粘贴剪贴板图片到文件夹:', selectedFolder.value)
   
   try {
     const result = await window.api.saveClipboardImage(selectedFolder.value)
     
-    console.log('保存剪贴板图片结果:', result)
-    
     if (result?.success) {
-      console.log('剪贴板图片已保存:', result.fileName)
-      // 刷新文件夹以显示新添加的图片
       await loadVideos()
-      // 显示成功提示
       showToast(`✅ 图片保存成功！文件名: ${result.fileName}`, 'success')
     } else {
-      console.error('保存剪贴板图片失败:', result?.error)
-      
       // 根据错误类型提供不同的提示
       let errorMessage = result?.error || '未知错误'
       if (errorMessage.includes('剪贴板中没有图片')) {
@@ -656,19 +575,14 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' = 'succes
 
 // 组件挂载时初始化
 onMounted(async () => {
-  // 添加窗口大小变化监听器
   window.addEventListener('resize', handleResize)
-  // 添加点击事件监听器（用于关闭右键菜单）
   document.addEventListener('click', handleDocumentClick)
 
-  // 加载上次选择的文件夹
   const lastFolder = videoStore.settings.lastSelectedFolder
   if (lastFolder) {
     selectedFolder.value = lastFolder
     await loadVideos()
   }
-
-  console.log('视频管理器已启动，视频数量:', videoStore.videos.length)
 })
 
 // 组件卸载时清理

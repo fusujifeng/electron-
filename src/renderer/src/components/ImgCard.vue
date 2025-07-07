@@ -48,11 +48,11 @@ const viewImage = async () => {
         emit('update', updatedImage)
       }
     } else {
-      console.error('打开图片失败:', result.error)
-    }
+        // TODO: 显示错误提示给用户
+      }
   } catch (error) {
-    console.error('打开图片时发生错误:', error)
-  }
+      // TODO: 显示错误提示给用户
+    }
 }
 
 // 切换收藏状态
@@ -93,19 +93,8 @@ watch(
           :alt="image.name"
           class="w-full h-auto object-contain"
           style="max-height: 100%; max-width: 100%;"
-          @load="() => { 
-            imageLoaded = true; 
-            console.log('图片加载成功:', image.name, '路径:', image.path); 
-          }"
-          @error="(event) => { 
-            imageError = true; 
-            console.error('图片加载失败详情:'); 
-            console.error('- 文件名:', image.name); 
-            console.error('- 原始路径:', image.path); 
-            console.error('- 转换后URL:', `local-image://${image.path.replace(/\\/g, '/')}`); 
-            console.error('- 错误事件:', event); 
-            console.error('- 图片元素src:', (event.target as HTMLImageElement)?.src); 
-          }"
+          @load="imageLoaded = true"
+          @error="imageError = true"
         />
         
         <!-- 加载失败时显示默认图标 -->

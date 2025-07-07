@@ -209,7 +209,7 @@ const loadSearchHistory = () => {
       searchHistory.value = JSON.parse(stored)
     }
   } catch (error) {
-    console.error('加载搜索历史失败:', error)
+    // 加载搜索历史失败，使用空数组
   }
 }
 

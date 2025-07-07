@@ -104,10 +104,10 @@ const playVideo = async () => {
           emit('update', updatedVideo)
         }
       } else {
-        console.error('打开图片失败:', result.error)
+        // TODO: 显示错误提示给用户
       }
     } catch (error) {
-      console.error('打开图片时发生错误:', error)
+      // TODO: 显示错误提示给用户
     }
   } else {
     // 对于视频，使用系统默认播放器打开
@@ -120,7 +120,6 @@ const playVideo = async () => {
           emit('update', updatedVideo)
         }
       } else {
-        console.error('打开视频失败:', result.error)
         // 如果系统默认播放器失败，回退到原来的方式
         const updatedVideo = videoStore.incrementPlayCount(props.video.id)
         if (updatedVideo) {
@@ -129,7 +128,6 @@ const playVideo = async () => {
         emit('play', props.video)
       }
     } catch (error) {
-      console.error('打开视频时发生错误:', error)
       // 如果出错，回退到原来的方式
       const updatedVideo = videoStore.incrementPlayCount(props.video.id)
       if (updatedVideo) {
@@ -142,7 +140,7 @@ const playVideo = async () => {
 
 // 显示详情
 const showDetails = () => {
-  console.log('显示详情:', props.video.name || props.video.title)
+  // TODO: 实现详情显示功能
 }
 
 // 切换收藏状态
@@ -156,7 +154,7 @@ const toggleFavorite = () => {
 
 // 编辑视频信息
 const editVideo = () => {
-  console.log('编辑视频:', props.video.name || props.video.title)
+  // TODO: 实现视频信息编辑功能
 }
 
 // 处理预览图上传
@@ -184,7 +182,7 @@ const handleThumbnailRemove = () => {
 
 // 处理上传错误
 const handleUploadError = (message: string) => {
-  console.error('上传预览图失败:', message)
+  // TODO: 显示错误提示给用户
 }
 
 // 显示/隐藏图片上传
@@ -266,20 +264,8 @@ const getImageSrc = (video: Video) => {
           :alt="video.name"
           class="w-full h-auto object-contain"
            style="max-height: 100%; max-width: 100%;"
-          @load="() => {
-            imageLoaded = true;
-            console.log('图片加载成功:', video.name || video.title, '路径:', video.thumbnail);
-          }"
-          @error="(event) => {
-            console.error('图片加载失败详情:');
-            console.error('- 文件名:', video.name || video.title);
-            console.error('- 原始缩略图路径:', video.thumbnail);
-            console.error('- 转换后URL:', getImageSrc(video));
-            console.error('- 错误事件:', event);
-            console.error('- 图片元素src:', (event.target as HTMLImageElement)?.src);
-            console.error('- category:', video.category, 'isFolder:', video.isFolder);
-            // 不设置imageError，让图片继续显示，可能是临时网络问题
-          }"
+          @load="imageLoaded = true"
+          @error="imageError = false"
         />
 
         <!-- 文件夹封面的遮罩层，用于更好的文字可读性 -->

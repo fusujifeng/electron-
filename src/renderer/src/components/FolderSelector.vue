@@ -61,7 +61,6 @@ const selectFolder = async () => {
       emit('select', selectedPath)
     }
   } catch (error) {
-    console.error('选择文件夹失败:', error)
     // 如果 API 不可用，提示用户
     alert('文件夹选择功能不可用，请确保在 Electron 环境中运行')
   }
@@ -83,10 +82,9 @@ const copyPath = async () => {
   
   try {
     await navigator.clipboard.writeText(props.selectedFolder)
-    // 这里可以添加一个提示消息
-    console.log('路径已复制到剪贴板')
+    // 路径已复制到剪贴板
   } catch (error) {
-    console.error('复制失败:', error)
+    // 复制失败，可能需要显示错误提示
   }
 }
 
