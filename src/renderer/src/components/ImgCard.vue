@@ -78,6 +78,7 @@ watch(
 
 <template>
   <div 
+    data-img-card
     class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer border border-green-50 hover:border-green-200 hover:-translate-y-2"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"

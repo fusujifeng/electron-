@@ -7,6 +7,7 @@ interface CustomAPI {
   selectFolder: () => Promise<{success: boolean, folderPath?: string, error?: string}>
   openInExplorer: (folderPath: string) => Promise<{success: boolean, error?: string}>
   saveClipboardImage: (folderPath: string) => Promise<{success: boolean, filePath?: string, fileName?: string, error?: string}>
+  deleteFile: (filePath: string) => Promise<{success: boolean, error?: string}>
 }
 
 declare global {

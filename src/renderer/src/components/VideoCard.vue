@@ -224,6 +224,7 @@ const getImageSrc = (video: Video) => {
 
 <template>
   <div
+    data-video-card
     class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer border border-pink-50 hover:border-pink-100 hover:-translate-y-2"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"

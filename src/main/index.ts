@@ -372,6 +372,42 @@ app.whenReady().then(() => {
     }
   })
 
+  // 删除文件
+  ipcMain.handle('delete-file', async (_event, filePath: string) => {
+    try {
+      console.log('开始删除文件:', filePath)
+      
+      // 检查文件是否存在
+      if (!fs.existsSync(filePath)) {
+        console.error('文件不存在:', filePath)
+        return { success: false, error: '文件不存在' }
+      }
+      
+      // 检查是否为文件（而不是文件夹）
+      const stats = await fs.promises.stat(filePath)
+      if (!stats.isFile()) {
+        console.error('目标不是文件:', filePath)
+        return { success: false, error: '目标不是文件' }
+      }
+      
+      // 删除文件
+      await fs.promises.unlink(filePath)
+      
+      // 验证文件是否已删除
+      const fileStillExists = fs.existsSync(filePath)
+      if (fileStillExists) {
+        return { success: false, error: '文件删除失败，文件仍然存在' }
+      }
+      
+      console.log('文件删除成功:', filePath)
+      return { success: true }
+    } catch (error) {
+      console.error('删除文件时发生异常:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      return { success: false, error: `删除失败: ${errorMessage}` }
+    }
+  })
+
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 

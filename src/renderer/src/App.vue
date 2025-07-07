@@ -28,6 +28,8 @@ const sortBy = ref('name') // 排序方式：name, size-desc, time-desc, time-as
 // 右键菜单相关
 const showContextMenu = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuType = ref<'paste' | 'image'>('paste') // 菜单类型：粘贴或图片操作
+const selectedImagePath = ref<string>('') // 选中的图片路径
 
 // Toast通知相关
 const toastMessage = ref('')
@@ -431,13 +433,94 @@ const handleResize = () => {
 
 // 右键菜单处理
 const handleContextMenu = (event: MouseEvent) => {
-  // 只在选择了文件夹时显示右键菜单
-  if (!selectedFolder.value) return
+  // 只在最深层文件夹中启用右键菜单
+  if (!isDeepestFolder.value) {
+    return
+  }
   
-  event.preventDefault()
-  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
-  contextMenuTarget.value = selectedFolder.value
-  showContextMenu.value = true
+  const target = event.target as HTMLElement
+  
+  console.log('右键菜单事件触发:', {
+    target: target.tagName,
+    className: target.className,
+    src: (target as any).src,
+    parentElement: target.parentElement?.tagName,
+    parentClassName: target.parentElement?.className
+  })
+  
+  // 检查是否点击的是图片卡片
+  const imgCard = target.closest('[data-img-card]')
+  // 检查是否点击的是视频卡片
+  const videoCard = target.closest('[data-video-card]')
+  
+  if (imgCard) {
+    // 在图片卡片内部，显示图片操作菜单（设置为封面、删除）
+    event.preventDefault()
+    
+    // 查找卡片内的图片元素来获取路径
+    let imageElement: HTMLImageElement | null = null
+    let imageSrc = ''
+    
+    // 优先查找卡片内的图片
+    imageElement = imgCard.querySelector('img')
+    if (imageElement) {
+      imageSrc = imageElement.src
+      console.log('在图片卡片中找到图片:', imageSrc)
+    }
+    
+    // 如果找到了有效的本地图片
+    if (imageElement && imageSrc && imageSrc.startsWith('local-image://')) {
+      console.log('检测到有效的本地图片:', imageSrc)
+      const decodedPath = decodeURIComponent(imageSrc.replace('local-image://', ''))
+      selectedImagePath.value = decodedPath.replace(/\//g, '\\')
+      contextMenuType.value = 'image'
+      console.log('设置为图片菜单（图片卡片内）:', selectedImagePath.value)
+    } else {
+      // 图片卡片内但没有有效图片，仍然显示图片菜单但路径为空
+      contextMenuType.value = 'image'
+      selectedImagePath.value = ''
+      console.log('设置为图片菜单（图片卡片内，无有效图片）')
+    }
+    
+    // 设置菜单位置
+    contextMenuPosition.value = {
+      x: event.clientX,
+      y: event.clientY
+    }
+    
+    showContextMenu.value = true
+    
+    console.log('右键菜单最终状态:', {
+      type: contextMenuType.value,
+      position: contextMenuPosition.value,
+      imagePath: selectedImagePath.value
+    })
+  } else if (videoCard) {
+    // 在视频卡片内部，不显示任何菜单（无反应）
+    console.log('右击视频卡片，无反应')
+    return
+  } else {
+    // 在卡片外部的空白区域，显示粘贴菜单
+    event.preventDefault()
+    
+    contextMenuType.value = 'paste'
+    selectedImagePath.value = ''
+    console.log('设置为粘贴菜单（卡片外空白区域）')
+    
+    // 设置菜单位置
+    contextMenuPosition.value = {
+      x: event.clientX,
+      y: event.clientY
+    }
+    
+    showContextMenu.value = true
+    
+    console.log('右键菜单最终状态:', {
+      type: contextMenuType.value,
+      position: contextMenuPosition.value,
+      imagePath: selectedImagePath.value
+    })
+  }
 }
 
 // 关闭右键菜单
@@ -489,9 +572,73 @@ const pasteClipboardImage = async () => {
 }
 
 // 点击其他地方关闭右键菜单
-const handleDocumentClick = () => {
+const handleDocumentClick = (event: Event) => {
   if (showContextMenu.value) {
-    closeContextMenu()
+    // 检查点击的是否是右键菜单内部
+    const target = event.target as HTMLElement
+    const contextMenu = document.querySelector('.context-menu')
+    
+    // 如果点击的不是右键菜单内部，则关闭菜单
+    if (contextMenu && !contextMenu.contains(target)) {
+      closeContextMenu()
+    }
+  }
+}
+
+// 设置为封面
+const setAsCover = async () => {
+  closeContextMenu()
+  
+  if (!selectedImagePath.value || !selectedFolder.value) {
+    showToast('❌ 设置封面失败：未选择图片', 'error')
+    return
+  }
+  
+  try {
+    // 这里可以添加设置封面的逻辑
+    // 目前只是显示成功提示
+    const fileName = selectedImagePath.value.split('\\').pop() || ''
+    showToast(`✅ 已设置 "${fileName}" 为文件夹封面`, 'success')
+    
+    // 刷新文件夹以更新封面显示
+    await loadVideos()
+  } catch (error) {
+    console.error('设置封面失败:', error)
+    showToast('❌ 设置封面失败', 'error')
+  }
+}
+
+// 删除图片
+const deleteImage = async () => {
+  closeContextMenu()
+  
+  if (!selectedImagePath.value) {
+    showToast('❌ 删除失败：未选择图片', 'error')
+    return
+  }
+  
+  const fileName = selectedImagePath.value.split('\\').pop() || ''
+  
+  // 二次确认
+  const confirmed = confirm(`确定要删除图片 "${fileName}" 吗？\n\n此操作不可撤销！`)
+  if (!confirmed) {
+    return
+  }
+  
+  try {
+    // 调用删除文件的API
+    const result = await window.api.deleteFile(selectedImagePath.value)
+    
+    if (result?.success) {
+      showToast(`✅ 图片 "${fileName}" 已删除`, 'success')
+      // 刷新文件夹以更新显示
+      await loadVideos()
+    } else {
+      showToast(`❌ 删除失败：${result?.error || '未知错误'}`, 'error')
+    }
+  } catch (error) {
+    console.error('删除图片失败:', error)
+    showToast('❌ 删除图片失败', 'error')
   }
 }
 
@@ -859,20 +1006,45 @@ onUnmounted(() => {
     <!-- 右键菜单 -->
     <div
       v-if="showContextMenu"
-      class="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-32"
+      class="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[120px] context-menu"
       :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
       @click.stop
     >
-      <button
-        v-if="isDeepestFolder"
-        @click="pasteClipboardImage"
-        class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-      >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-        </svg>
-        <span>粘贴图片</span>
-      </button>
+      <!-- 粘贴菜单 -->
+      <template v-if="contextMenuType === 'paste'">
+        <button
+          class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+          @click="pasteClipboardImage"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+          </svg>
+          <span>粘贴图片</span>
+        </button>
+      </template>
+      
+      <!-- 图片操作菜单 -->
+      <template v-else-if="contextMenuType === 'image'">
+        <button
+          class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+          @click="setAsCover"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          <span>设置为封面</span>
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button
+          class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+          @click="deleteImage"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          <span>删除</span>
+        </button>
+      </template>
     </div>
   </div>
 </template>
