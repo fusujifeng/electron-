@@ -25,8 +25,13 @@ export interface Settings {
   thumbnailQuality?: 'low' | 'medium' | 'high'
 }
 
-const STORAGE_KEY = 'video-manager-data'
-const SETTINGS_KEY = 'video-manager-settings'
+export interface FolderTags {
+  [folderPath: string]: string[]
+}
+
+const STORAGE_KEY = 'feng-video-player-videos'
+const SETTINGS_KEY = 'feng-video-player-settings'
+const FOLDER_TAGS_KEY = 'feng-video-player-folder-tags'
 
 export const useVideoStore = defineStore('video', () => {
   // State
@@ -38,6 +43,7 @@ export const useVideoStore = defineStore('video', () => {
     autoScan: false,
     thumbnailQuality: 'medium'
   })
+  const folderTags = ref<FolderTags>({})
 
   // Computed
   const videoCount = computed(() => videos.value.length)
@@ -69,6 +75,12 @@ export const useVideoStore = defineStore('video', () => {
         const parsedSettings = JSON.parse(storedSettings)
         settings.value = { ...settings.value, ...parsedSettings }
       }
+
+      const storedFolderTags = localStorage.getItem(FOLDER_TAGS_KEY)
+      if (storedFolderTags) {
+        const parsedFolderTags = JSON.parse(storedFolderTags)
+        folderTags.value = parsedFolderTags || {}
+      }
     } catch (error) {
       console.error('加载数据失败:', error)
     }
@@ -82,6 +94,7 @@ export const useVideoStore = defineStore('video', () => {
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings.value))
+      localStorage.setItem(FOLDER_TAGS_KEY, JSON.stringify(folderTags.value))
     } catch (error) {
       console.error('保存数据失败:', error)
     }
@@ -172,11 +185,21 @@ export const useVideoStore = defineStore('video', () => {
     // 按关键词搜索
     if (query.trim()) {
       const searchTerm = query.toLowerCase()
-      results = results.filter(v => 
-        v.title.toLowerCase().includes(searchTerm) ||
-        v.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
-        v.category?.toLowerCase().includes(searchTerm)
-      )
+      results = results.filter(v => {
+        // 搜索标题
+        const titleMatch = v.title.toLowerCase().includes(searchTerm)
+        
+        // 搜索视频自身的tags
+        const videoTagsMatch = v.tags?.some(tag => tag.toLowerCase().includes(searchTerm))
+        
+        // 搜索文件夹的tags（如果是文件夹）
+        const folderTagsMatch = v.isFolder && folderTags.value[v.path]?.some(tag => tag.toLowerCase().includes(searchTerm))
+        
+        // 搜索分类
+        const categoryMatch = v.category?.toLowerCase().includes(searchTerm)
+        
+        return titleMatch || videoTagsMatch || folderTagsMatch || categoryMatch
+      })
     }
 
     return results
@@ -187,11 +210,42 @@ export const useVideoStore = defineStore('video', () => {
     return videos.value.filter(v => v.category === category)
   }
 
+  // 文件夹tag管理
+  const getFolderTags = (folderPath: string): string[] => {
+    return folderTags.value[folderPath] || []
+  }
+
+  const setFolderTags = (folderPath: string, tags: string[]) => {
+    folderTags.value[folderPath] = [...tags]
+    saveData()
+  }
+
+  const addFolderTag = (folderPath: string, tag: string) => {
+    if (!folderTags.value[folderPath]) {
+      folderTags.value[folderPath] = []
+    }
+    if (!folderTags.value[folderPath].includes(tag)) {
+      folderTags.value[folderPath].push(tag)
+      saveData()
+    }
+  }
+
+  const removeFolderTag = (folderPath: string, tag: string) => {
+    if (folderTags.value[folderPath]) {
+      const index = folderTags.value[folderPath].indexOf(tag)
+      if (index > -1) {
+        folderTags.value[folderPath].splice(index, 1)
+        saveData()
+      }
+    }
+  }
+
   const exportData = () => {
     return {
       videos: videos.value,
       folders: folders.value,
       settings: settings.value,
+      folderTags: folderTags.value,
       exportDate: new Date().toISOString()
     }
   }
@@ -201,6 +255,7 @@ export const useVideoStore = defineStore('video', () => {
       if (data.videos) videos.value = data.videos
       if (data.folders) folders.value = data.folders
       if (data.settings) settings.value = { ...settings.value, ...data.settings }
+      if (data.folderTags) folderTags.value = data.folderTags
       saveData()
       return true
     } catch (error) {
@@ -217,6 +272,7 @@ export const useVideoStore = defineStore('video', () => {
     videos,
     folders,
     settings,
+    folderTags,
     
     // Computed
     videoCount,
@@ -239,6 +295,12 @@ export const useVideoStore = defineStore('video', () => {
     searchVideos,
     getVideosByCategory,
     exportData,
-    importData
+    importData,
+    
+    // Folder tag methods
+    getFolderTags,
+    setFolderTags,
+    addFolderTag,
+    removeFolderTag
   }
 })

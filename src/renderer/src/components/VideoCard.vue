@@ -24,6 +24,17 @@ const imageLoaded = ref(false)
 const imageError = ref(false)
 const showImageUpload = ref(false)
 
+// 计算显示的标签
+const displayTags = computed(() => {
+  if (props.video.isFolder) {
+    // 对于文件夹，显示folderTags
+    return videoStore.getFolderTags(props.video.path) || []
+  } else {
+    // 对于视频，显示video.tags
+    return props.video.tags || []
+  }
+})
+
 // 监听视频属性变化，重置图片状态
 watch(
   () => [props.video.thumbnail, props.video.path],
@@ -479,19 +490,19 @@ const getImageSrc = (video: Video) => {
       </div>
 
       <!-- 标签 -->
-      <div v-if="video.tags && video.tags.length > 0" class="flex flex-wrap gap-2 mb-4">
+      <div v-if="displayTags.length > 0" class="flex flex-wrap gap-2 mb-4">
         <span
-          v-for="tag in video.tags.slice(0, 3)"
+          v-for="tag in displayTags.slice(0, 3)"
           :key="tag"
           class="inline-block bg-gradient-to-r from-pink-100 to-red-100 text-pink-700 text-xs px-3 py-1.5 rounded-full font-medium border border-pink-200"
         >
           # {{ tag }}
         </span>
         <span
-          v-if="video.tags.length > 3"
+          v-if="displayTags.length > 3"
           class="inline-block text-pink-400 text-xs px-2 py-1 bg-pink-50 rounded-full font-medium"
         >
-          +{{ video.tags.length - 3 }}
+          +{{ displayTags.length - 3 }}
         </span>
       </div>
 

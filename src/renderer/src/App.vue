@@ -4,6 +4,7 @@ import VideoGrid from './components/VideoGrid.vue'
 import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
 import FolderSelector from './components/FolderSelector.vue'
+import TagManager from './components/TagManager.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
 
@@ -25,6 +26,7 @@ const selectedPreviewImage = ref<Video | null>(null)
 const showPreviewPanel = ref(false)
 const windowWidth = ref(window.innerWidth)
 const isLargeScreen = computed(() => windowWidth.value >= 1536) // 2xl breakpoint
+const isDeepestFolder = ref(false)
 
 // 导航历史记录
 const navigationHistory = ref<string[]>([])
@@ -167,6 +169,9 @@ const loadVideos = async () => {
     }
 
     console.log('数据刷新完成，当前视频数量:', videoStore.videos.length)
+    
+    // 检测是否为最深层文件夹
+    await checkIsDeepestFolder(selectedFolder.value)
 
   } catch (error) {
     console.error('加载视频失败:', error)
@@ -319,6 +324,30 @@ const getPreviewImageSrc = (video: Video) => {
   return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
 }
 
+// 检测是否为最深层文件夹（没有子文件夹）
+const checkIsDeepestFolder = async (folderPath: string) => {
+  try {
+    const result = await window.api?.scanFolder(folderPath)
+    if (result?.success && result.items) {
+      // 检查是否有子文件夹
+      const hasSubfolders = result.items.some(item => item.type === 'folder')
+      isDeepestFolder.value = !hasSubfolders
+      console.log('检测最深层文件夹:', folderPath, '是否为最深层:', !hasSubfolders)
+    }
+  } catch (error) {
+    console.error('检测最深层文件夹失败:', error)
+    isDeepestFolder.value = false
+  }
+}
+
+// 处理文件夹标签更新
+const handleFolderTagsUpdate = (tags: string[]) => {
+  if (selectedPreviewImage.value?.path) {
+    videoStore.setFolderTags(selectedPreviewImage.value.path, tags)
+    console.log('文件夹标签已更新:', selectedPreviewImage.value.path, tags)
+  }
+}
+
 // 窗口大小变化处理
 const handleResize = () => {
   windowWidth.value = window.innerWidth
@@ -453,37 +482,15 @@ onUnmounted(() => {
         class="fixed right-0 top-0 w-[33vw] h-full bg-white border-l border-gray-200 flex flex-col z-50 shadow-lg"
       >
         <!-- 预览面板头部 -->
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center p-4 border-b border-gray-200 bg-gray-50">
           <h3 class="text-lg font-semibold text-gray-800 truncate">
             {{ selectedPreviewImage.title || selectedPreviewImage.name }}
           </h3>
-          <button
-            @click="closePreviewPanel"
-            class="p-2 hover:bg-gray-200 rounded-full transition-colors"
-          >
-            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-
-        <!-- 预览图片区域 -->
-        <div class="flex-1 p-2 flex items-center justify-center bg-gray-50" style="min-height: 400px;">
-          <div class="w-full h-full flex items-center justify-center">
-            <img
-              :src="getPreviewImageSrc(selectedPreviewImage)"
-              :alt="selectedPreviewImage.name"
-              class="rounded-lg shadow-lg"
-              style="max-height: calc(100vh - 200px); max-width: 100%; width: auto; height: auto; min-height: 350px; object-fit: contain;"
-              @error="$event.target.src = '/folder-icon.svg'"
-              @load="console.log('预览图片加载成功:', selectedPreviewImage.name)"
-            />
-          </div>
         </div>
 
         <!-- 预览信息区域 -->
-        <div class="p-4 border-t border-gray-200 bg-white">
-          <div class="space-y-3">
+        <div class="flex-1 p-4 bg-white overflow-y-auto">
+          <div class="space-y-4">
             <div class="flex items-center space-x-2">
               <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
@@ -493,9 +500,18 @@ onUnmounted(() => {
             <div class="text-xs text-gray-500 break-all">
               {{ selectedPreviewImage.path }}
             </div>
+            
+            <!-- Tag管理组件 - 仅在最深层文件夹时显示 -->
+            <div v-if="isDeepestFolder" class="mt-6">
+              <TagManager
+                :folder-path="selectedPreviewImage.path"
+                @tags-updated="handleFolderTagsUpdate"
+              />
+            </div>
+            
             <button
               @click="handleFolderSelect(selectedPreviewImage.path)"
-              class="w-full mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+              class="w-full mt-6 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
             >
               进入文件夹
             </button>

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VideoCard from './VideoCard.vue'
 import ImgCard from './ImgCard.vue'
+import { useVideoStore } from '../stores/videoStore'
 import type { Video } from '../stores/videoStore'
 
 interface Props {
@@ -21,11 +22,12 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const videoStore = useVideoStore()
 
 // 瀑布流相关
 const containerRef = ref<HTMLElement>()
 const columns = ref(4) // 默认4列
-const visibleVideos = ref<Video[]>([])
+const visibleVideos = ref<Video[]>()
 const loadedCount = ref(20) // 初始加载20个
 const isLoadingMore = ref(false)
 
@@ -36,10 +38,26 @@ const filteredVideos = computed(() => {
   // 搜索过滤
   if (props.searchQuery) {
     const query = props.searchQuery.toLowerCase()
-    result = result.filter(video => 
-      video.title.toLowerCase().includes(query) ||
-      video.tags?.some(tag => tag.toLowerCase().includes(query))
-    )
+    result = result.filter(video => {
+      // 搜索标题
+      const titleMatch = video.title.toLowerCase().includes(query)
+      
+      // 搜索视频自身的tags
+      const videoTagsMatch = video.tags?.some(tag => tag.toLowerCase().includes(query))
+      
+      // 搜索文件夹的tags（如果是文件夹）
+      const folderTagsMatch = video.isFolder && videoStore.folderTags[video.path]?.some(tag => tag.toLowerCase().includes(query))
+      
+      // 搜索文件夹路径中的文件夹tags（对于视频文件，检查其所在文件夹的tags）
+      let parentFolderTagsMatch = false
+      if (!video.isFolder) {
+        // 获取视频文件的父文件夹路径
+        const parentPath = video.path.substring(0, video.path.lastIndexOf('\\'))
+        parentFolderTagsMatch = videoStore.folderTags[parentPath]?.some(tag => tag.toLowerCase().includes(query)) || false
+      }
+      
+      return titleMatch || videoTagsMatch || folderTagsMatch || parentFolderTagsMatch
+    })
   }
   
   // 分类过滤
