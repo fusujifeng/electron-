@@ -428,7 +428,17 @@ const handleContextMenu = (event: MouseEvent) => {
     // 如果找到了有效的本地图片
     if (imageElement && imageElement.src && imageElement.src.startsWith('local-image://')) {
       const decodedPath = decodeURIComponent(imageElement.src.replace('local-image://', ''))
-      selectedImagePath.value = decodedPath.replace(/\//g, '\\')
+      
+      // 修复Windows路径格式
+      let fixedPath = decodedPath
+      // 如果路径是 d/path 格式，转换为 D:\path
+      if (fixedPath.match(/^[a-zA-Z]\//) && !fixedPath.includes(':')) {
+        fixedPath = fixedPath.charAt(0).toUpperCase() + ':' + fixedPath.substring(1)
+      }
+      // 将正斜杠转换为反斜杠
+      fixedPath = fixedPath.replace(/\//g, '\\')
+      
+      selectedImagePath.value = fixedPath
     } else {
       selectedImagePath.value = ''
     }
