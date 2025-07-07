@@ -50,17 +50,34 @@ const filteredVideos = computed(() => {
   return result
 })
 
+// CSS Grid 响应式列数类
+const gridCols = computed(() => {
+  switch (columns.value) {
+    case 1: return 'grid-cols-1'
+    case 2: return 'grid-cols-2'
+    case 3: return 'grid-cols-3'
+    case 4: return 'grid-cols-4'
+    case 5: return 'grid-cols-5'
+    case 6: return 'grid-cols-6'
+    default: return 'grid-cols-4'
+  }
+})
+
 // 响应式列数调整
 const updateColumns = () => {
   if (!containerRef.value) return
   
   const width = containerRef.value.clientWidth
+  console.log('容器宽度:', width, '当前列数:', columns.value)
+  
   if (width >= 1536) columns.value = 6      // 2xl
   else if (width >= 1280) columns.value = 5 // xl
   else if (width >= 1024) columns.value = 4 // lg
   else if (width >= 768) columns.value = 3  // md
   else if (width >= 640) columns.value = 2  // sm
   else columns.value = 1                    // xs
+  
+  console.log('更新后列数:', columns.value)
 }
 
 // 加载更多视频
@@ -117,34 +134,7 @@ const handleScroll = () => {
   }
 }
 
-// 计算容器总高度
-const getContainerHeight = computed(() => {
-  if (visibleVideos.value.length === 0) return 400
-  
-  const totalRows = Math.ceil(visibleVideos.value.length / columns.value)
-  const cardHeight = 320 // 卡片基础高度
-  const rowGap = 20 // 行间距
-  
-  return totalRows * cardHeight + (totalRows - 1) * rowGap + 40 // 额外底部间距
-})
 
-// 计算视频卡片的位置
-const getVideoStyle = (index: number) => {
-  const columnIndex = index % columns.value
-  const columnWidth = 100 / columns.value
-  const gap = 1 // 1% gap
-  
-  // 计算当前行的基础高度
-  const rowIndex = Math.floor(index / columns.value)
-  const baseHeight = rowIndex * 320 // 假设每个卡片基础高度为320px
-  
-  return {
-    position: 'absolute' as const,
-    left: `${columnIndex * columnWidth + gap}%`,
-    width: `${columnWidth - gap * 2}%`,
-    top: `${baseHeight + rowIndex * 20}px` // 添加行间距
-  }
-}
 
 // 监听过滤条件变化
 watch([() => props.videos, () => props.searchQuery, () => props.selectedCategory], () => {
@@ -179,11 +169,10 @@ onUnmounted(() => {
     </div>
     
     <!-- 瀑布流网格 -->
-    <div v-else class="relative" :style="{ height: getContainerHeight + 'px' }">
+    <div v-else class="grid gap-4" :class="gridCols">
       <div 
         v-for="(video, index) in visibleVideos" 
         :key="video.id"
-        :style="getVideoStyle(index)"
         class="video-item"
       >
         <!-- 根据文件类型使用不同的组件 -->
@@ -228,7 +217,6 @@ onUnmounted(() => {
 
 <style scoped>
 .video-grid-container {
-  position: relative;
   min-height: 400px;
 }
 

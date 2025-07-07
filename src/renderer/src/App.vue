@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import VideoGrid from './components/VideoGrid.vue'
 import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
@@ -23,6 +23,8 @@ const selectedCategory = ref('all')
 const isLoading = ref(false)
 const selectedPreviewImage = ref<Video | null>(null)
 const showPreviewPanel = ref(false)
+const windowWidth = ref(window.innerWidth)
+const isLargeScreen = computed(() => windowWidth.value >= 1536) // 2xl breakpoint
 
 // 导航历史记录
 const navigationHistory = ref<string[]>([])
@@ -272,10 +274,13 @@ const handleVideoFavorite = (video: Video) => {
 
 // 处理文件夹卡片点击预览
 const handleFolderPreview = (video: Video) => {
-  if (video.isFolder) {
+  if (video.isFolder && isLargeScreen.value) {
     selectedPreviewImage.value = video
     showPreviewPanel.value = true
     console.log('显示文件夹预览:', video.name, '缩略图:', video.thumbnail)
+  } else if (video.isFolder && !isLargeScreen.value) {
+    // 在小屏幕上直接进入文件夹
+    handleFolderSelect(video.path)
   }
 }
 
@@ -314,8 +319,20 @@ const getPreviewImageSrc = (video: Video) => {
   return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
 }
 
+// 窗口大小变化处理
+const handleResize = () => {
+  windowWidth.value = window.innerWidth
+  // 如果窗口变小且预览面板正在显示，则关闭预览面板
+  if (!isLargeScreen.value && showPreviewPanel.value) {
+    closePreviewPanel()
+  }
+}
+
 // 组件挂载时初始化
 onMounted(async () => {
+  // 添加窗口大小变化监听器
+  window.addEventListener('resize', handleResize)
+  
   // 加载上次选择的文件夹
   const lastFolder = videoStore.settings.lastSelectedFolder
   if (lastFolder) {
@@ -324,6 +341,11 @@ onMounted(async () => {
   }
 
   console.log('视频管理器已启动，视频数量:', videoStore.videos.length)
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -393,8 +415,11 @@ onMounted(async () => {
     <main class="flex-1 flex">
       <!-- 左侧内容区域 -->
       <div
-        class=" w-[66vw] overflow-auto transition-all duration-300"
-        :class="{ 'mr-96': showPreviewPanel }"
+        class="overflow-auto transition-all duration-300"
+        :class="{
+          'w-full': !isLargeScreen || !showPreviewPanel,
+          'w-[66vw] mr-96': isLargeScreen && showPreviewPanel
+        }"
       >
         <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
         <!-- 文件夹选择区域 -->
@@ -424,7 +449,7 @@ onMounted(async () => {
 
       <!-- 右侧预览面板 -->
       <div
-        v-if="showPreviewPanel && selectedPreviewImage"
+        v-if="isLargeScreen && showPreviewPanel && selectedPreviewImage"
         class="fixed right-0 top-0 w-[33vw] h-full bg-white border-l border-gray-200 flex flex-col z-50 shadow-lg"
       >
         <!-- 预览面板头部 -->
