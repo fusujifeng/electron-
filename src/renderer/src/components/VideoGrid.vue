@@ -9,6 +9,7 @@ interface Props {
   videos: Video[]
   searchQuery: string
   selectedCategory: string
+  sortBy?: string
   isLoading?: boolean
 }
 
@@ -63,6 +64,39 @@ const filteredVideos = computed(() => {
   // 分类过滤
   if (props.selectedCategory !== 'all') {
     result = result.filter(video => video.category === props.selectedCategory)
+  }
+  
+  // 排序
+  if (props.sortBy) {
+    switch (props.sortBy) {
+      case 'name':
+        result = result.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case 'size-desc':
+        result = result.sort((a, b) => {
+          const sizeA = typeof a.size === 'string' ? parseInt(a.size) || 0 : a.size || 0
+          const sizeB = typeof b.size === 'string' ? parseInt(b.size) || 0 : b.size || 0
+          return sizeB - sizeA
+        })
+        break
+      case 'time-desc':
+        result = result.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return timeB - timeA
+        })
+        break
+      case 'time-asc':
+        result = result.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return timeA - timeB
+        })
+        break
+      default:
+        // 默认按名称排序
+        result = result.sort((a, b) => a.name.localeCompare(b.name))
+    }
   }
   
   return result
@@ -155,7 +189,7 @@ const handleScroll = () => {
 
 
 // 监听过滤条件变化
-watch([() => props.videos, () => props.searchQuery, () => props.selectedCategory], () => {
+watch([() => props.videos, () => props.searchQuery, () => props.selectedCategory, () => props.sortBy], () => {
   loadedCount.value = 20
   updateVisibleVideos()
 }, { deep: true })

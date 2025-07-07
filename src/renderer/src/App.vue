@@ -27,6 +27,15 @@ const showPreviewPanel = ref(false)
 const windowWidth = ref(window.innerWidth)
 const isLargeScreen = computed(() => windowWidth.value >= 1536) // 2xl breakpoint
 const isDeepestFolder = ref(false)
+const sortBy = ref('name') // 排序方式：name, size-desc, time-desc, time-asc
+
+// 排序选项
+const sortOptions = [
+  { value: 'name', label: '按名称排序', icon: '🔤' },
+  { value: 'size-desc', label: '按大小排序（大到小）', icon: '📊' },
+  { value: 'time-desc', label: '按时间排序（新到旧）', icon: '🕒' },
+  { value: 'time-asc', label: '按时间排序（旧到新）', icon: '🕐' }
+]
 
 // 导航历史记录
 const navigationHistory = ref<string[]>([])
@@ -397,7 +406,22 @@ onUnmounted(() => {
             </div>
 
             <!-- 导航区域 -->
-            <div v-if="selectedFolder" class="flex items-center space-x-3 ml-6">
+            <div class="flex items-center space-x-3 ml-6">
+              <!-- 文件夹选择按钮（当没有选择文件夹时显示） -->
+              <button
+                v-if="!selectedFolder"
+                @click="async () => { const result = await window.api?.selectFolder(); if (result?.success && result.folderPath) { await selectFolder(result.folderPath); } }"
+                class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-600 rounded-xl transition-all duration-300 hover:scale-105 border border-purple-200 hover:border-purple-300 shadow-sm hover:shadow-md"
+                title="选择文件夹"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <span class="text-sm font-medium">选择文件夹</span>
+              </button>
+
+              <!-- 文件夹导航区域（当已选择文件夹时显示） -->
+              <template v-if="selectedFolder">
               <!-- 回退按钮 -->
               <button
                 v-if="canGoBack"
@@ -420,8 +444,55 @@ onUnmounted(() => {
                   {{ currentFolderName || '根目录' }}
                 </span>
               </div>
-            </div>
-          </div>
+
+              <!-- 刷新按钮 -->
+              <button
+                @click="refreshFolder"
+                :disabled="isLoading"
+                class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                title="刷新文件夹"
+              >
+                <svg 
+                  class="h-5 w-5 text-green-600 transition-transform duration-500 group-hover:rotate-180"
+                  :class="{ 'animate-spin': isLoading }"
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <!-- 加载状态指示器 -->
+                <div v-if="isLoading" class="absolute inset-0 bg-green-100/50 rounded-xl flex items-center justify-center">
+                   <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                 </div>
+                </button>
+
+                <!-- 排序下拉框 -->
+                <div class="relative">
+                  <select
+                    v-model="sortBy"
+                    class="appearance-none bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 text-blue-700 text-sm rounded-xl px-4 py-2 pr-8 transition-all duration-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent cursor-pointer"
+                    title="选择排序方式"
+                  >
+                    <option
+                      v-for="option in sortOptions"
+                      :key="option.value"
+                      :value="option.value"
+                      class="bg-white text-gray-800"
+                    >
+                      {{ option.icon }} {{ option.label }}
+                    </option>
+                  </select>
+                  <!-- 下拉箭头 -->
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg class="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </div>
+                </div>
+                </template>
+             </div>
+           </div>
 
           <!-- 搜索栏 -->
           <div class="flex-1 max-w-md mx-8">
@@ -452,7 +523,7 @@ onUnmounted(() => {
       >
         <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
         <!-- 文件夹选择区域 -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div v-if="!selectedFolder" class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <FolderSelector
             :selected-folder="selectedFolder"
             :is-loading="isLoading"
@@ -466,6 +537,7 @@ onUnmounted(() => {
           :videos="videoStore.videos"
           :search-query="searchQuery"
           :selected-category="selectedCategory"
+          :sort-by="sortBy"
           :is-loading="isLoading"
           @video-update="handleVideoUpdate"
           @video-play="handleVideoPlay"
