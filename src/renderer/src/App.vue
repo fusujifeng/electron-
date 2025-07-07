@@ -288,13 +288,14 @@ const handleVideoFavorite = (video: Video) => {
 
 // 处理文件夹卡片点击预览
 const handleFolderPreview = (video: Video) => {
-  if (video.isFolder && isLargeScreen.value) {
+  if (video.isFolder) {
+    // 无论屏幕大小，单击文件夹都只显示预览，不进入文件夹
     selectedPreviewImage.value = video
     showPreviewPanel.value = true
     console.log('显示文件夹预览:', video.name, '缩略图:', video.thumbnail)
-  } else if (video.isFolder && !isLargeScreen.value) {
-    // 在小屏幕上直接进入文件夹
-    handleFolderSelect(video.path)
+    
+    // 检测是否为最深层文件夹
+    checkIsDeepestFolder(video.path)
   }
 }
 
@@ -552,19 +553,50 @@ onUnmounted(() => {
 
       <!-- 右侧预览面板 -->
       <div
-        v-if="isLargeScreen && showPreviewPanel && selectedPreviewImage"
-        class="fixed right-0 top-0 w-[33vw] h-full bg-white border-l border-gray-200 flex flex-col z-50 shadow-lg"
+        v-if="showPreviewPanel && selectedPreviewImage"
+        class="fixed right-0 top-0 h-full bg-white border-l border-gray-200 flex flex-col z-50 shadow-lg"
+        :class="{
+          'w-[33vw]': isLargeScreen,
+          'w-full': !isLargeScreen
+        }"
       >
         <!-- 预览面板头部 -->
-        <div class="flex items-center p-4 border-b border-gray-200 bg-gray-50">
-          <h3 class="text-lg font-semibold text-gray-800 truncate">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+          <h3 class="text-lg font-semibold text-gray-800 truncate flex-1 mr-4">
             {{ selectedPreviewImage.title || selectedPreviewImage.name }}
           </h3>
+          <button
+            @click="closePreviewPanel"
+            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+            title="关闭预览"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
         </div>
 
         <!-- 预览信息区域 -->
         <div class="flex-1 p-4 bg-white overflow-y-auto">
           <div class="space-y-4">
+            <!-- 文件夹预览图像 -->
+            <div class="w-full aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+              <img
+                v-if="selectedPreviewImage.thumbnail && selectedPreviewImage.thumbnail !== '/folder-icon.svg'"
+                :src="getPreviewImageSrc(selectedPreviewImage)"
+                :alt="selectedPreviewImage.name"
+                class="w-full h-full object-cover"
+                @error="() => {}"
+              />
+              <div v-else class="flex flex-col items-center justify-center text-gray-400">
+                <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <span class="text-sm">暂无预览图</span>
+              </div>
+            </div>
+            
+            <!-- 文件夹信息 -->
             <div class="flex items-center space-x-2">
               <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
@@ -577,10 +609,13 @@ onUnmounted(() => {
             
             <!-- Tag管理组件 - 仅在最深层文件夹时显示 -->
             <div v-if="isDeepestFolder" class="mt-6">
-              <TagManager
-                :folder-path="selectedPreviewImage.path"
-                @tags-updated="handleFolderTagsUpdate"
-              />
+              <div class="border-t border-gray-200 pt-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-3">标签管理</h4>
+                <TagManager
+                  :folder-path="selectedPreviewImage.path"
+                  @tags-updated="handleFolderTagsUpdate"
+                />
+              </div>
             </div>
             
             <button
