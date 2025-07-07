@@ -13,6 +13,7 @@ interface Emits {
   (e: 'favorite', video: Video): void
   (e: 'folder-select', path: string): void
   (e: 'folder-preview', video: Video): void
+  (e: 'loaded'): void
 }
 
 const props = defineProps<Props>()
@@ -224,18 +225,29 @@ const getImageSrc = (video: Video) => {
   // 否则构建 local-image:// URL
   return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
 }
+
+// 图片加载完成处理
+const handleImageLoad = () => {
+  imageLoaded.value = true
+  console.log('图片加载成功:', props.video.name)
+  emit('loaded')
+}
+
+// 图片加载错误处理
+const handleImageError = (event: Event) => {
+  console.error('图片加载失败:', props.video.name, props.video.thumbnail)
+  // 不设置imageError，让图片继续显示
+}
 </script>
 
 <template>
   <div
-    class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer border border-pink-50 hover:border-pink-100 hover:-translate-y-2"
-    @mouseenter="isHovered = true"
-    @mouseleave="isHovered = false"
+    class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden cursor-pointer group w-full"
     @click="handleClick"
-    @dblclick="handleDoubleClick"
+    @contextmenu="handleRightClick"
   >
     <!-- 缩略图容器 -->
-    <div class="relative bg-gradient-to-br from-pink-50 to-red-50 overflow-hidden rounded-t-2xl" :style="video.thumbnail ? 'min-height: 200px; max-height: 400px;' : 'aspect-ratio: 16/9;'">
+    <div class="relative overflow-hidden w-full">
       <!-- 图片上传组件 -->
       <div v-if="showImageUpload" class="absolute inset-0 z-20 bg-white">
         <ImageUpload
@@ -260,29 +272,16 @@ const getImageSrc = (video: Video) => {
       <!-- 缩略图 -->
       <div
         v-if="video.thumbnail && !showImageUpload"
-        class="w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
-        :style="'min-height: 200px; max-height: 400px;'"
+        class="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
       >
         <!-- 对于所有有缩略图的项目，使用img标签显示 -->
         <img
           :src="getImageSrc(video)"
           :alt="video.name"
           class="w-full h-auto object-contain"
-           style="max-height: 100%; max-width: 100%;"
-          @load="() => { 
-            imageLoaded = true; 
-            console.log('图片加载成功:', video.name, '路径:', video.thumbnail); 
-          }"
-          @error="(event) => { 
-            console.error('图片加载失败详情:'); 
-            console.error('- 文件名:', video.name); 
-            console.error('- 原始缩略图路径:', video.thumbnail); 
-            console.error('- 转换后URL:', getImageSrc(video)); 
-            console.error('- 错误事件:', event); 
-            console.error('- 图片元素src:', event.target?.src); 
-            console.error('- category:', video.category, 'isFolder:', video.isFolder); 
-            // 不设置imageError，让图片继续显示，可能是临时网络问题
-          }"
+          loading="lazy"
+          @load="handleImageLoad"
+          @error="handleImageError"
         />
 
         <!-- 文件夹封面的遮罩层，用于更好的文字可读性 -->

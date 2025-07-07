@@ -10,6 +10,7 @@ interface Emits {
   (e: 'update', image: Video): void
   (e: 'view', image: Video): void
   (e: 'favorite', image: Video): void
+  (e: 'loaded'): void
 }
 
 const props = defineProps<Props>()
@@ -64,6 +65,24 @@ const toggleFavorite = (event: Event) => {
   }
 }
 
+// 获取图片源
+const getImageSrc = (image: Video) => {
+  return `local-image://${image.path.replace(/\\/g, '/')}`
+}
+
+// 图片加载完成处理
+const handleImageLoad = () => {
+  imageLoaded.value = true
+  console.log('图片加载成功:', props.image.name)
+  emit('loaded')
+}
+
+// 图片加载错误处理
+const handleImageError = (event: Event) => {
+  imageError.value = true
+  console.error('图片加载失败:', props.image.name, props.image.path)
+}
+
 // 监听图片路径变化，重置图片加载状态
 watch(
   () => props.image.path,
@@ -76,46 +95,33 @@ watch(
 </script>
 
 <template>
-  <div 
+  <div
     class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer border border-green-50 hover:border-green-200 hover:-translate-y-2"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
     @dblclick="viewImage"
   >
     <!-- 图片容器 -->
-    <div class="relative bg-gradient-to-br from-green-50 to-emerald-50 overflow-hidden rounded-t-2xl" style="min-height: 200px; max-height: 400px;">
-      <!-- 图片显示 -->
-      <div class="w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105" style="min-height: 200px; max-height: 400px;">
-        <img 
-          :src="`local-image://${image.path.replace(/\\/g, '/')}`"
-          :alt="image.name"
-          class="w-full h-auto object-contain"
-          style="max-height: 100%; max-width: 100%;"
-          @load="() => { 
-            imageLoaded = true; 
-            console.log('图片加载成功:', image.name, '路径:', image.path); 
-          }"
-          @error="(event) => { 
-            imageError = true; 
-            console.error('图片加载失败详情:'); 
-            console.error('- 文件名:', image.name); 
-            console.error('- 原始路径:', image.path); 
-            console.error('- 转换后URL:', `local-image://${image.path.replace(/\\/g, '/')}`); 
-            console.error('- 错误事件:', event); 
-            console.error('- 图片元素src:', event.target?.src); 
-          }"
-        />
-        
+    <div class="relative overflow-hidden rounded-t-lg w-full">
+      <img
+        :src="getImageSrc(image)"
+        :alt="image.name"
+        class="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+        loading="lazy"
+        @load="handleImageLoad"
+        @error="handleImageError"
+      />
+
         <!-- 加载失败时显示默认图标 -->
-        <div 
+        <div
           v-if="imageError"
           class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50"
         >
           <div class="text-center">
-            <svg 
-              class="w-16 h-16 text-green-400 mx-auto mb-3" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              class="w-16 h-16 text-green-400 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -123,25 +129,25 @@ watch(
             <p class="text-sm text-green-600 font-medium">图片加载失败</p>
           </div>
         </div>
-        
+
         <!-- 图片遮罩层，用于更好的文字可读性 -->
-        <div 
+        <div
           class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/20 pointer-events-none"
         ></div>
       </div>
-      
+
       <!-- 查看按钮覆盖层 -->
-      <div 
+      <div
         class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center"
       >
-        <div 
+        <div
           class="w-16 h-16 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-500 shadow-2xl border-2 border-green-200"
         >
           <!-- 查看图片图标 -->
-          <svg 
-            class="w-7 h-7 text-green-500" 
-            fill="none" 
-            stroke="currentColor" 
+          <svg
+            class="w-7 h-7 text-green-500"
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -149,16 +155,16 @@ watch(
           </svg>
         </div>
       </div>
-      
+
       <!-- 文件扩展名标签 -->
-      <div 
+      <div
         class="absolute top-3 left-3 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-lg backdrop-blur-sm bg-gradient-to-r from-green-500/90 to-emerald-500/90"
       >
         🖼️ {{ getFileExtension }}
       </div>
-      
+
       <!-- 收藏按钮 -->
-      <div 
+      <div
         v-show="isHovered"
         class="absolute top-3 right-3"
       >
@@ -173,9 +179,9 @@ watch(
           </svg>
         </button>
       </div>
-      
+
       <!-- 收藏标识 -->
-      <div 
+      <div
         v-if="image.isFavorite && !isHovered"
         class="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg"
       >
@@ -184,17 +190,17 @@ watch(
         </svg>
       </div>
     </div>
-    
+
     <!-- 图片信息 -->
     <div class="p-4">
       <!-- 标题 -->
-      <h3 
+      <h3
         class="font-semibold text-gray-800 text-sm line-clamp-2 mb-2 group-hover:text-green-600 transition-colors leading-relaxed"
         :title="image.name"
       >
         {{ image.title || image.name }}
       </h3>
-      
+
       <!-- 元数据 -->
       <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
         <span class="px-2 py-1 bg-green-100 text-green-600 rounded-full font-medium">
@@ -209,11 +215,11 @@ watch(
           {{ image.playCount || 0 }}
         </span>
       </div>
-      
+
       <!-- 标签 -->
       <div v-if="image.tags && image.tags.length > 0" class="flex flex-wrap gap-1">
-        <span 
-          v-for="tag in image.tags.slice(0, 3)" 
+        <span
+          v-for="tag in image.tags.slice(0, 3)"
           :key="tag"
           class="inline-block bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium border border-green-200"
         >
@@ -221,7 +227,7 @@ watch(
         </span>
       </div>
     </div>
-  </div>
+
 </template>
 
 <style scoped>

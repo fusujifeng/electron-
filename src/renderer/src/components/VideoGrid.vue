@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import VideoCard from './VideoCard.vue'
 import ImgCard from './ImgCard.vue'
 import { useVideoStore } from '../stores/videoStore'
@@ -31,6 +31,9 @@ const columns = ref(4) // 默认4列
 const visibleVideos = ref<Video[]>()
 const loadedCount = ref(20) // 初始加载20个
 const isLoadingMore = ref(false)
+const cardRefs = ref<HTMLElement[]>([])
+const columnHeights = ref<number[]>([])
+const cardPositions = ref<{top: number, left: number, width: number}[]>([])
 
 // 过滤后的视频列表
 const filteredVideos = computed(() => {
@@ -130,6 +133,55 @@ const updateColumns = () => {
   else columns.value = 1                    // xs
   
   console.log('更新后列数:', columns.value)
+  
+  // 重新计算瀑布流布局
+  calculateWaterfallLayout()
+}
+
+// 计算瀑布流布局
+const calculateWaterfallLayout = () => {
+  if (!containerRef.value || !cardRefs.value.length) return
+  
+  const containerWidth = containerRef.value.clientWidth
+  const gap = 16 // 间距
+  const columnWidth = (containerWidth - gap * (columns.value - 1)) / columns.value
+  
+  // 初始化列高度
+  columnHeights.value = new Array(columns.value).fill(0)
+  cardPositions.value = []
+  
+  // 等待DOM更新后再计算
+  nextTick(() => {
+    cardRefs.value.forEach((cardEl, index) => {
+      if (!cardEl) return
+      
+      // 找到最短的列
+      const shortestColumnIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value))
+      
+      // 计算卡片位置
+      const left = shortestColumnIndex * (columnWidth + gap)
+      const top = columnHeights.value[shortestColumnIndex]
+      
+      // 强制重新计算高度
+      cardEl.style.width = `${columnWidth}px`
+      const cardHeight = cardEl.getBoundingClientRect().height || 300
+      
+      cardPositions.value[index] = {
+        top,
+        left,
+        width: columnWidth
+      }
+      
+      // 更新列高度
+      columnHeights.value[shortestColumnIndex] += cardHeight + gap
+    })
+    
+    // 设置容器高度
+    const maxHeight = Math.max(...columnHeights.value)
+    if (containerRef.value) {
+      containerRef.value.style.height = `${maxHeight}px`
+    }
+  })
 }
 
 // 加载更多视频
@@ -192,6 +244,17 @@ const handleScroll = () => {
 watch([() => props.videos, () => props.searchQuery, () => props.selectedCategory, () => props.sortBy], () => {
   loadedCount.value = 20
   updateVisibleVideos()
+  // 延迟计算布局，等待DOM更新
+  setTimeout(() => {
+    calculateWaterfallLayout()
+  }, 100)
+}, { deep: true })
+
+// 监听可见视频变化
+watch(visibleVideos, () => {
+  setTimeout(() => {
+    calculateWaterfallLayout()
+  }, 100)
 }, { deep: true })
 
 onMounted(() => {
@@ -199,6 +262,11 @@ onMounted(() => {
   updateVisibleVideos()
   window.addEventListener('resize', updateColumns)
   window.addEventListener('scroll', handleScroll)
+  
+  // 初始化布局
+  setTimeout(() => {
+    calculateWaterfallLayout()
+  }, 200)
 })
 
 onUnmounted(() => {
@@ -220,12 +288,18 @@ onUnmounted(() => {
       </p>
     </div>
     
-    <!-- 瀑布流网格 -->
-    <div v-else class="grid gap-4" :class="gridCols">
+    <!-- 瀑布流容器 -->
+    <div v-else class="relative" ref="waterfallContainer">
       <div 
         v-for="(video, index) in visibleVideos" 
         :key="video.id"
-        class="video-item"
+        :ref="el => cardRefs[index] = el"
+        class="video-item absolute transition-all duration-300"
+        :style="{
+          top: cardPositions[index]?.top + 'px',
+          left: cardPositions[index]?.left + 'px',
+          width: cardPositions[index]?.width + 'px'
+        }"
       >
         <!-- 根据文件类型使用不同的组件 -->
         <VideoCard 
@@ -236,6 +310,7 @@ onUnmounted(() => {
           @favorite="handleVideoFavorite"
           @folder-select="handleFolderSelect"
           @folder-preview="handleFolderPreview"
+          @loaded="() => calculateWaterfallLayout()"
         />
         <ImgCard 
           v-else
@@ -243,6 +318,7 @@ onUnmounted(() => {
           @update="handleVideoUpdate"
           @view="handleVideoPlay"
           @favorite="handleVideoFavorite"
+          @loaded="() => calculateWaterfallLayout()"
         />
       </div>
       
