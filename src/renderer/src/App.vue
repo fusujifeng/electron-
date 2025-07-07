@@ -92,6 +92,62 @@ const handleSelectFolderClick = async () => {
   }
 }
 
+// 导出数据
+const exportData = () => {
+  try {
+    const data = videoStore.exportData()
+    const jsonString = JSON.stringify(data, null, 2)
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `feng-video-player-backup-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    console.log('数据导出成功')
+  } catch (error) {
+    console.error('导出数据失败:', error)
+  }
+}
+
+// 导入数据
+const importData = () => {
+  try {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          try {
+            const jsonData = JSON.parse(e.target?.result as string)
+            const success = videoStore.importData(jsonData)
+            if (success) {
+              console.log('数据导入成功')
+              // 刷新界面
+              if (selectedFolder.value) {
+                loadVideos()
+              }
+            } else {
+              console.error('导入数据失败')
+            }
+          } catch (error) {
+            console.error('解析导入文件失败:', error)
+          }
+        }
+        reader.readAsText(file)
+      }
+    }
+    input.click()
+  } catch (error) {
+    console.error('导入数据失败:', error)
+  }
+}
+
 // 刷新文件夹
 const refreshFolder = async () => {
   if (selectedFolder.value) {
@@ -442,27 +498,62 @@ onUnmounted(() => {
                 </span>
               </div>
 
-              <!-- 刷新按钮 -->
-              <button
-                @click="refreshFolder"
-                :disabled="isLoading"
-                class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                title="刷新文件夹"
-              >
-                <svg
-                  class="h-5 w-5 text-green-600 transition-transform duration-500 group-hover:rotate-180"
-                  :class="{ 'animate-spin': isLoading }"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <!-- 操作按钮组 -->
+              <div class="flex items-center space-x-2">
+                <!-- 导入按钮 -->
+                <button
+                  @click="importData"
+                  class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                  title="导入数据"
                 >
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                <!-- 加载状态指示器 -->
-                <div v-if="isLoading" class="absolute inset-0 bg-green-100/50 rounded-xl flex items-center justify-center">
-                   <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                 </div>
+                  <svg
+                    class="h-5 w-5 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                  </svg>
                 </button>
+
+                <!-- 导出按钮 -->
+                <button
+                  @click="exportData"
+                  class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border border-purple-200 hover:border-purple-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                  title="导出数据"
+                >
+                  <svg
+                    class="h-5 w-5 text-purple-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                </button>
+
+                <!-- 刷新按钮 -->
+                <button
+                  @click="refreshFolder"
+                  :disabled="isLoading"
+                  class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="刷新文件夹"
+                >
+                  <svg
+                    class="h-5 w-5 text-green-600 transition-transform duration-500 group-hover:rotate-180"
+                    :class="{ 'animate-spin': isLoading }"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  <!-- 加载状态指示器 -->
+                  <div v-if="isLoading" class="absolute inset-0 bg-green-100/50 rounded-xl flex items-center justify-center">
+                     <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                   </div>
+                  </button>
+              </div>
 
                 <!-- 排序下拉框 -->
                 <div class="relative">
