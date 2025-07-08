@@ -395,6 +395,30 @@ const handleFolderTagsUpdate = (tags: string[]) => {
   }
 }
 
+// 播放文件夹中的第一个视频
+const playFirstVideo = async () => {
+  if (!selectedPreviewImage.value?.path) {
+    return
+  }
+
+  try {
+    // 扫描文件夹获取视频文件
+    const result = await (window as any).api?.scanFolder(selectedPreviewImage.value.path)
+    
+    if (result?.success && result.items) {
+      // 查找第一个视频文件
+      const firstVideo = result.items.find(item => item.type === 'video')
+      
+      if (firstVideo) {
+        // 使用系统默认应用打开视频
+        await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
+      }
+    }
+  } catch (error) {
+    console.error('播放视频失败:', error)
+  }
+}
+
 // 窗口大小变化处理
 const handleResize = () => {
   windowWidth.value = window.innerWidth
@@ -410,21 +434,21 @@ const handleContextMenu = (event: MouseEvent) => {
   if (!isDeepestFolder.value) {
     return
   }
-  
+
   const target = event.target as HTMLElement
-  
+
   // 检查是否点击的是图片卡片
   const imgCard = target.closest('[data-img-card]')
   // 检查是否点击的是视频卡片
   const videoCard = target.closest('[data-video-card]')
-  
+
   if (imgCard) {
     // 在图片卡片内部，显示图片操作菜单（设置为封面、删除）
     event.preventDefault()
-    
+
     // 查找卡片内的图片元素来获取路径
     const imageElement = imgCard.querySelector('img')
-    
+
     // 如果找到了有效的本地图片
     if (imageElement && imageElement.src && imageElement.src.startsWith('local-image://')) {
       // 移除 local-image:// 前缀和可能的时间戳参数
@@ -435,7 +459,7 @@ const handleContextMenu = (event: MouseEvent) => {
         srcPath = srcPath.substring(0, queryIndex)
       }
       const decodedPath = decodeURIComponent(srcPath)
-      
+
       // 修复Windows路径格式
       let fixedPath = decodedPath
       // 如果路径是 d/path 格式，转换为 D:\path
@@ -444,23 +468,23 @@ const handleContextMenu = (event: MouseEvent) => {
       }
       // 将正斜杠转换为反斜杠
       fixedPath = fixedPath.replace(/\//g, '\\')
-      
+
       selectedImagePath.value = fixedPath
     } else {
       selectedImagePath.value = ''
     }
-    
+
     contextMenuType.value = 'image'
     contextMenuPosition.value = { x: event.clientX, y: event.clientY }
     showContextMenu.value = true
-    
+
   } else if (videoCard) {
     // 在视频卡片内部，不显示任何菜单（无反应）
     return
   } else {
     // 在卡片外部的空白区域，显示粘贴菜单
     event.preventDefault()
-    
+
     contextMenuType.value = 'paste'
     selectedImagePath.value = ''
     contextMenuPosition.value = { x: event.clientX, y: event.clientY }
@@ -476,15 +500,15 @@ const closeContextMenu = () => {
 // 粘贴剪贴板图片
 const pasteClipboardImage = async () => {
   closeContextMenu()
-  
+
   if (!selectedFolder.value) {
     showToast('❌ 请先选择一个文件夹', 'error')
     return
   }
-  
+
   try {
     const result = await window.api.saveClipboardImage(selectedFolder.value)
-    
+
     if (result?.success) {
       await loadVideos()
       showToast(`✅ 图片保存成功！文件名: ${result.fileName}`, 'success')
@@ -498,7 +522,7 @@ const pasteClipboardImage = async () => {
       } else if (errorMessage.includes('文件夹不存在')) {
         errorMessage = '❌ 目标文件夹不存在\n\n请重新选择一个有效的文件夹'
       }
-      
+
       alert(errorMessage)
     }
   } catch (error) {
@@ -513,7 +537,7 @@ const handleDocumentClick = (event: Event) => {
     // 检查点击的是否是右键菜单内部
     const target = event.target as HTMLElement
     const contextMenu = document.querySelector('.context-menu')
-    
+
     // 如果点击的不是右键菜单内部，则关闭菜单
     if (contextMenu && !contextMenu.contains(target)) {
       closeContextMenu()
@@ -524,16 +548,16 @@ const handleDocumentClick = (event: Event) => {
 // 设置为封面
 const setAsCover = async () => {
   closeContextMenu()
-  
+
   if (!selectedImagePath.value || !selectedFolder.value) {
     showToast('❌ 设置封面失败：未选择图片', 'error')
     return
   }
-  
+
   try {
     console.log('设置封面:', selectedImagePath.value)
     const result = await window.api.setAsCover(selectedImagePath.value)
-    
+
     if (result.success) {
       if (result.message) {
         showToast(result.message, 'info')
@@ -541,7 +565,7 @@ const setAsCover = async () => {
         const fileName = selectedImagePath.value.split('\\').pop() || ''
         showToast(`✅ 已设置 "${fileName}" 为文件夹封面`, 'success')
       }
-      
+
       // 刷新文件夹以更新封面显示
       await loadVideos()
     } else {
@@ -557,24 +581,24 @@ const setAsCover = async () => {
 // 删除图片
 const deleteImage = async () => {
   closeContextMenu()
-  
+
   if (!selectedImagePath.value) {
     showToast('❌ 删除失败：未选择图片', 'error')
     return
   }
-  
+
   const fileName = selectedImagePath.value.split('\\').pop() || ''
-  
+
   // 二次确认
   const confirmed = confirm(`确定要删除图片 "${fileName}" 吗？\n\n此操作不可撤销！`)
   if (!confirmed) {
     return
   }
-  
+
   try {
     // 调用删除文件的API
     const result = await window.api.deleteFile(selectedImagePath.value)
-    
+
     if (result?.success) {
       showToast(`✅ 图片 "${fileName}" 已删除`, 'success')
       // 刷新文件夹以更新显示
@@ -593,7 +617,7 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' = 'succes
   toastMessage.value = message
   toastType.value = type
   showToastNotification.value = true
-  
+
   // 3秒后自动隐藏
   setTimeout(() => {
     showToastNotification.value = false
@@ -935,12 +959,30 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <button
-              @click="handleFolderSelect(selectedPreviewImage.path)"
-              class="w-full mt-6 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
-            >
-              进入文件夹
-            </button>
+            <!-- 按钮组 - 推特X风格 -->
+            <div class="flex flex-col space-y-3 mt-6">
+              <!-- 进入文件夹按钮 -->
+              <button
+                @click="handleFolderSelect(selectedPreviewImage.path)"
+                class="group relative w-full px-6 py-3 bg-black hover:bg-gray-800 text-white rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+              >
+                <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <span>进入文件夹</span>
+              </button>
+              
+              <!-- 播放视频按钮 -->
+              <button
+                @click="playFirstVideo"
+                class="group relative w-full px-6 py-3 bg-white hover:bg-gray-50 text-black border border-gray-300 hover:border-gray-400 rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+              >
+                <svg class="w-4 h-4 transition-transform group-hover:scale-110" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"></path>
+                </svg>
+                <span>播放视频</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -965,7 +1007,7 @@ onUnmounted(() => {
           <span>粘贴图片</span>
         </button>
       </template>
-      
+
       <!-- 图片操作菜单 -->
       <template v-else-if="contextMenuType === 'image'">
         <button
