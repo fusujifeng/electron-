@@ -1,22 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 
 interface Props {
   selectedFolder: string
   isLoading?: boolean
-  canGoBack?: boolean
 }
 
 interface Emits {
   (e: 'select', folderPath?: string): void
   (e: 'refresh'): void
-  (e: 'go-back'): void
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-
+const showTooltip = ref(false)
 
 // 格式化文件夹路径显示
 const displayPath = computed(() => {
@@ -51,7 +49,7 @@ const folderName = computed(() => {
 const selectFolder = async () => {
   try {
     // 使用自定义的 dialog API 选择文件夹
-    const result = await (window as any).api?.showOpenDialog({
+    const result = await window.api?.showOpenDialog({
       properties: ['openDirectory'],
       title: '选择视频文件夹'
     })
@@ -61,6 +59,7 @@ const selectFolder = async () => {
       emit('select', selectedPath)
     }
   } catch (error) {
+    console.error('选择文件夹失败:', error)
     // 如果 API 不可用，提示用户
     alert('文件夹选择功能不可用，请确保在 Electron 环境中运行')
   }
@@ -71,20 +70,16 @@ const refreshFolder = () => {
   emit('refresh')
 }
 
-// 返回上一级
-const goBack = () => {
-  emit('go-back')
-}
-
 // 复制路径到剪贴板
 const copyPath = async () => {
   if (!props.selectedFolder) return
   
   try {
     await navigator.clipboard.writeText(props.selectedFolder)
-    // 路径已复制到剪贴板
+    // 这里可以添加一个提示消息
+    console.log('路径已复制到剪贴板')
   } catch (error) {
-    // 复制失败，可能需要显示错误提示
+    console.error('复制失败:', error)
   }
 }
 
@@ -93,7 +88,7 @@ const openInExplorer = () => {
   if (!props.selectedFolder) return
   
   // 通过 Electron 的 IPC 调用打开文件管理器
-  (window as any).api?.openInExplorer?.(props.selectedFolder)
+  window.electron?.shell?.openPath(props.selectedFolder)
 }
 </script>
 
@@ -154,19 +149,6 @@ const openInExplorer = () => {
     
     <!-- 操作按钮 -->
     <div class="flex items-center space-x-2 flex-shrink-0">
-      <!-- 返回按钮 -->
-      <button
-        v-if="selectedFolder && canGoBack"
-        @click="goBack"
-        :disabled="isLoading"
-        class="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110"
-        title="返回上一级"
-      >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-        </svg>
-      </button>
-      
       <!-- 刷新按钮 -->
       <button
         v-if="selectedFolder"

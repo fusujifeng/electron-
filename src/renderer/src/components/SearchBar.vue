@@ -87,14 +87,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useVideoStore } from '../stores/videoStore'
 
 interface Emits {
   (e: 'search', query: string): void
 }
 
 const emit = defineEmits<Emits>()
-const videoStore = useVideoStore()
 
 const searchQuery = ref('')
 const showSuggestions = ref(false)
@@ -106,14 +104,6 @@ const searchHistory = ref<string[]>([])
 // 搜索建议
 const suggestions = computed(() => {
   if (!searchQuery.value.trim()) return []
-  
-  const query = searchQuery.value.toLowerCase()
-  
-  // 获取所有文件夹标签
-  const allFolderTags = new Set<string>()
-  Object.values(videoStore.folderTags).forEach(tags => {
-    tags.forEach(tag => allFolderTags.add(tag))
-  })
   
   const mockSuggestions = [
     '复仇者联盟',
@@ -130,12 +120,9 @@ const suggestions = computed(() => {
     '剧情'
   ]
   
-  // 合并文件夹标签和默认建议
-  const allSuggestions = [...Array.from(allFolderTags), ...mockSuggestions]
-  
-  return allSuggestions.filter(item => 
-    item.toLowerCase().includes(query)
-  ).slice(0, 8) // 限制建议数量
+  return mockSuggestions.filter(item => 
+    item.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
 })
 
 // 处理输入
@@ -209,7 +196,7 @@ const loadSearchHistory = () => {
       searchHistory.value = JSON.parse(stored)
     }
   } catch (error) {
-    // 加载搜索历史失败，使用空数组
+    console.error('加载搜索历史失败:', error)
   }
 }
 

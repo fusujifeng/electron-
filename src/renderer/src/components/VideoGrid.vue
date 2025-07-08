@@ -11,6 +11,8 @@ interface Props {
   selectedCategory: string
   sortBy?: string
   isLoading?: boolean
+  currentFolder?: string // 当前文件夹路径
+  isDeepestFolder?: boolean // 是否为最深层文件夹
 }
 
 interface Emits {
@@ -38,30 +40,30 @@ const videoColumns = ref<Video[][]>([]) // 分列的视频数组
 const filteredVideos = computed(() => {
   let result = props.videos
   
-  // 搜索过滤
-  if (props.searchQuery) {
+  // 搜索过滤逻辑：
+  // 1. 在根目录时：搜索文件夹和其他内容
+  // 2. 在非最深层文件夹时：搜索文件夹和其他内容
+  // 3. 在最深层文件夹时：不进行搜索过滤，显示所有内容
+  if (props.searchQuery && (!props.currentFolder || !props.isDeepestFolder)) {
     const query = props.searchQuery.toLowerCase()
     result = result.filter(video => {
-      // 搜索标题
-      const titleMatch = video.title.toLowerCase().includes(query)
-      
-      // 搜索视频自身的tags
-      const videoTagsMatch = video.tags?.some(tag => tag.toLowerCase().includes(query))
-      
-      // 搜索文件夹的tags（如果是文件夹）
-      const folderTagsMatch = video.isFolder && videoStore.folderTags[video.path]?.some(tag => tag.toLowerCase().includes(query))
-      
-      // 搜索文件夹路径中的文件夹tags（对于视频文件，检查其所在文件夹的tags）
-      let parentFolderTagsMatch = false
-      if (!video.isFolder) {
-        // 获取视频文件的父文件夹路径
-        const parentPath = video.path.substring(0, video.path.lastIndexOf('\\'))
-        parentFolderTagsMatch = videoStore.folderTags[parentPath]?.some(tag => tag.toLowerCase().includes(query)) || false
+      if (video.isFolder) {
+        // 搜索文件夹标题
+        const titleMatch = video.title.toLowerCase().includes(query)
+        
+        // 搜索文件夹的tags
+        const folderTagsMatch = videoStore.folderTags[video.path]?.some(tag => tag.toLowerCase().includes(query))
+        
+        return titleMatch || folderTagsMatch
+      } else {
+        // 搜索非文件夹内容（视频、图片等）
+        const titleMatch = video.title.toLowerCase().includes(query)
+        const videoTagsMatch = video.tags?.some(tag => tag.toLowerCase().includes(query))
+        return titleMatch || videoTagsMatch
       }
-      
-      return titleMatch || videoTagsMatch || folderTagsMatch || parentFolderTagsMatch
     })
   }
+  // 在最深层文件夹时，不进行搜索过滤，显示所有内容
   
   // 分类过滤
   if (props.selectedCategory !== 'all') {
