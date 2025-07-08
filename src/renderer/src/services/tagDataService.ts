@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 // 文件夹标签数据接口
 export interface FolderTagData {

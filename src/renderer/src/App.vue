@@ -5,10 +5,13 @@ import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
 import FolderSelector from './components/FolderSelector.vue'
 import TagManager from './components/TagManager.vue'
-import DataManagementPanel from './components/DataManagementPanel.vue'
+
 import SettingsPanel from './components/SettingsPanel.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
+
+// 引入类型声明
+/// <reference path="../../preload/index.d.ts" />
 
 
 
@@ -111,17 +114,7 @@ const removeFolder = async (folderPath: string) => {
   }
 }
 
-// 处理文件夹选择按钮点击
-const handleSelectFolderClick = async () => {
-  try {
-    const result = await (window as any).api?.selectFolder()
-    if (result?.success && result.folderPath) {
-      await selectFolders([result.folderPath as string])
-    }
-  } catch (error) {
-    console.error('选择文件夹失败:', error)
-  }
-}
+
 
 // 导出数据
 const exportData = () => {
@@ -454,33 +447,7 @@ const playFirstVideo = async () => {
 }
 
 // 播放所有文件夹中的第一个视频
-const playFirstVideoFromAllFolders = async () => {
-  if (selectedFolders.value.length === 0) {
-    return
-  }
 
-  try {
-    // 遍历所有文件夹，找到第一个视频
-    for (const folderPath of selectedFolders.value) {
-      const result = await (window as any).api?.scanFolder(folderPath)
-
-      if (result?.success && result.items) {
-        const firstVideo = result.items.find(item => item.type === 'video')
-
-        if (firstVideo) {
-          // 使用系统默认应用打开视频
-          const openResult = await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
-
-          if (openResult?.success) {
-            return // 成功播放第一个找到的视频后退出
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('播放视频失败:', error)
-  }
-}
 
 // 窗口大小变化处理
 const handleResize = () => {

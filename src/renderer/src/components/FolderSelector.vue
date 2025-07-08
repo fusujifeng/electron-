@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
+
+// 引入类型声明
+/// <reference path="../../../preload/index.d.ts" />
 
 interface Props {
   selectedFolders: string[]
@@ -15,21 +18,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const showTooltip = ref(false)
 
-// 格式化文件夹路径显示
-const displayPath = (path: string) => {
-  const maxLength = 50
 
-  if (path.length <= maxLength) {
-    return path
-  }
 
-  // 截取路径，保留开头和结尾
-  const start = path.substring(0, 20)
-  const end = path.substring(path.length - 25)
-  return `${start}...${end}`
-}
 
 // 获取文件夹名称
 const getFolderName = (path: string) => {
@@ -66,10 +57,7 @@ const removeFolder = (folderPath: string) => {
   emit('remove', folderPath)
 }
 
-// 刷新文件夹
-const refreshFolder = () => {
-  emit('refresh')
-}
+
 
 // 复制路径到剪贴板
 const copyPath = async (path: string) => {
@@ -84,7 +72,7 @@ const copyPath = async (path: string) => {
 // 在文件管理器中打开
 const openInExplorer = (path: string) => {
   // 通过 Electron 的 IPC 调用打开文件管理器
-  window.electron?.shell?.openPath(path)
+  window.api?.openFileWithDefaultApp(path)
 }
 </script>
 
@@ -95,7 +83,7 @@ const openInExplorer = (path: string) => {
       <!-- 左侧：文件夹列表 -->
       <div class="flex flex-wrap gap-2 flex-1 mr-4">
          <div
-           v-for="(folder, index) in selectedFolders"
+           v-for="folder in selectedFolders"
            :key="folder"
            class="group relative inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-md cursor-pointer max-w-xs"
            :title="folder"

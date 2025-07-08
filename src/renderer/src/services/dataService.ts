@@ -13,6 +13,7 @@ export interface Video {
   lastPlayed?: Date
   playCount: number
   rating: number
+  isFavorite?: boolean
   isFolder?: boolean
 }
 
@@ -223,10 +224,7 @@ class DataService {
 
 
 
-  // 生成唯一ID
-  private generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2)
-  }
+
 }
 
 // 创建单例实例
