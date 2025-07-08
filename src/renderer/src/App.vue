@@ -5,6 +5,7 @@ import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
 import FolderSelector from './components/FolderSelector.vue'
 import TagManager from './components/TagManager.vue'
+import DataManagementPanel from './components/DataManagementPanel.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
 
@@ -944,6 +945,11 @@ onUnmounted(() => {
             @refresh="refreshFolder"
             @remove="removeFolder"
           />
+        </div>
+
+        <!-- 数据管理面板 - 仅在没有选择文件夹时显示 -->
+        <div v-if="selectedFolders.length === 0" class="mb-8">
+          <DataManagementPanel />
         </div>
 
         <!-- 视频网格 -->

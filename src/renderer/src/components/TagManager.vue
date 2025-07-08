@@ -55,7 +55,7 @@
       
       <!-- 快速标签建议 -->
       <div class="flex flex-wrap gap-2">
-        <span class="text-xs text-gray-500 mb-1 w-full">快速添加：</span>
+        <span class="text-xs text-gray-500 mb-1 w-full">快速添加（基于使用频率）：</span>
         <button
           v-for="suggestion in tagSuggestions"
           :key="suggestion"
@@ -64,6 +64,19 @@
         >
           {{ suggestion }}
         </button>
+        <button
+          v-if="tagSuggestions.length === 0"
+          @click="syncTagData"
+          class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+        >
+          同步标签数据
+        </button>
+      </div>
+      
+      <!-- 全局标签统计信息 -->
+      <div class="mt-2 text-xs text-gray-500">
+        <span>全局标签池: {{ globalTagCount }} 个标签</span>
+        <span class="ml-3">已管理文件夹: {{ managedFolderCount }} 个</span>
       </div>
     </div>
 
@@ -120,10 +133,17 @@ const newTag = ref('')
 const editingIndex = ref(-1)
 const editingTag = ref('')
 
-// 标签建议
+// 标签建议（使用全局标签池和常用标签）
 const tagSuggestions = computed(() => {
-  const commonTags = ['电影', '电视剧', '纪录片', '动画', '音乐', '教育', '娱乐', '科幻', '动作', '喜剧', '爱情', '悬疑']
-  return commonTags.filter(tag => !tags.value.includes(tag))
+  // 获取常用标签（使用频率最高的标签）
+  const commonTags = videoStore.getCommonTags(8)
+  
+  // 如果常用标签不足，补充默认标签
+  const defaultTags = ['电影', '电视剧', '纪录片', '动画', '音乐', '教育', '娱乐', '科幻', '动作', '喜剧', '爱情', '悬疑']
+  const allSuggestions = [...new Set([...commonTags, ...defaultTags])]
+  
+  // 过滤掉已经添加的标签
+  return allSuggestions.filter(tag => !tags.value.includes(tag)).slice(0, 10)
 })
 
 // 添加标签
@@ -172,6 +192,21 @@ const cancelEdit = () => {
 const emitUpdate = () => {
   emit('tags-updated', [...tags.value])
 }
+
+// 同步标签数据
+const syncTagData = () => {
+  videoStore.syncTagData()
+}
+
+// 全局标签统计
+const globalTagCount = computed(() => {
+  return videoStore.getGlobalTags().length
+})
+
+const managedFolderCount = computed(() => {
+  const stats = videoStore.getTagStatistics()
+  return stats.totalFolders
+})
 
 // 初始化时从videoStore加载标签
 onMounted(() => {

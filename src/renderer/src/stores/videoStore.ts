@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { tagDataService } from '../services/tagDataService'
 
 export interface Video {
   id: string
@@ -227,17 +228,29 @@ export const useVideoStore = defineStore('video', () => {
     return videos.value.filter(v => v.category === category)
   }
 
-  // 文件夹tag管理
+  // 文件夹tag管理（使用新的双重存储服务）
   const getFolderTags = (folderPath: string): string[] => {
+    // 优先使用新的tagDataService
+    const tags = tagDataService.getFolderTags(folderPath)
+    if (tags.length > 0) {
+      return tags
+    }
+    // 兼容旧数据
     return folderTags.value[folderPath] || []
   }
 
   const setFolderTags = (folderPath: string, tags: string[]) => {
+    // 使用新的双重存储服务
+    tagDataService.setFolderTags(folderPath, tags)
+    // 同时更新旧格式以保持兼容性
     folderTags.value[folderPath] = [...tags]
     saveData()
   }
 
   const addFolderTag = (folderPath: string, tag: string) => {
+    // 使用新的双重存储服务
+    tagDataService.addFolderTag(folderPath, tag)
+    // 同时更新旧格式以保持兼容性
     if (!folderTags.value[folderPath]) {
       folderTags.value[folderPath] = []
     }
@@ -248,6 +261,9 @@ export const useVideoStore = defineStore('video', () => {
   }
 
   const removeFolderTag = (folderPath: string, tag: string) => {
+    // 使用新的双重存储服务
+    tagDataService.removeFolderTag(folderPath, tag)
+    // 同时更新旧格式以保持兼容性
     if (folderTags.value[folderPath]) {
       const index = folderTags.value[folderPath].indexOf(tag)
       if (index > -1) {
@@ -255,6 +271,31 @@ export const useVideoStore = defineStore('video', () => {
         saveData()
       }
     }
+  }
+
+  // 新增：获取全局标签池
+  const getGlobalTags = (): string[] => {
+    return tagDataService.getGlobalTags()
+  }
+
+  // 新增：获取常用标签
+  const getCommonTags = (limit: number = 10): string[] => {
+    return tagDataService.getCommonTags(limit)
+  }
+
+  // 新增：同步标签数据
+  const syncTagData = (): void => {
+    tagDataService.syncData()
+  }
+
+  // 新增：按标签搜索文件夹
+  const searchFoldersByTag = (tag: string) => {
+    return tagDataService.searchFoldersByTag(tag)
+  }
+
+  // 新增：获取标签统计信息
+  const getTagStatistics = () => {
+    return tagDataService.getStatistics()
   }
 
   const exportData = () => {
@@ -318,6 +359,11 @@ export const useVideoStore = defineStore('video', () => {
     getFolderTags,
     setFolderTags,
     addFolderTag,
-    removeFolderTag
+    removeFolderTag,
+    getGlobalTags,
+    getCommonTags,
+    syncTagData,
+    searchFoldersByTag,
+    getTagStatistics
   }
 })
