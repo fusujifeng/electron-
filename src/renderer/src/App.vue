@@ -6,6 +6,7 @@ import CategoryFilter from './components/CategoryFilter.vue'
 import FolderSelector from './components/FolderSelector.vue'
 import TagManager from './components/TagManager.vue'
 import DataManagementPanel from './components/DataManagementPanel.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
 
@@ -36,6 +37,9 @@ const selectedImagePath = ref<string>('') // 选中的图片路径
 const toastMessage = ref('')
 const toastType = ref<'success' | 'error' | 'info'>('success')
 const showToastNotification = ref(false)
+
+// 设置面板相关
+const showSettingsPanel = ref(false)
 
 // 排序选项
 const sortOptions = [
@@ -683,6 +687,15 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' = 'succes
   }, 3000)
 }
 
+// 设置面板相关方法
+const openSettings = () => {
+  showSettingsPanel.value = true
+}
+
+const closeSettings = () => {
+  showSettingsPanel.value = false
+}
+
 // 组件挂载时初始化
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
@@ -899,13 +912,30 @@ onUnmounted(() => {
             <SearchBar @search="handleSearch" />
           </div>
 
-          <!-- 分类筛选 -->
+          <!-- 分类筛选和设置按钮 -->
           <div class="flex items-center space-x-4">
             <CategoryFilter
               :categories="categories"
               :selected-category="selectedCategory"
               @change="handleCategoryChange"
             />
+            
+            <!-- 设置按钮 -->
+            <button
+              @click="openSettings"
+              class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-gray-50 to-slate-50 hover:from-gray-100 hover:to-slate-100 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
+              title="设置"
+            >
+              <svg
+                class="h-5 w-5 text-gray-600 transition-transform duration-300 group-hover:rotate-90"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -947,10 +977,7 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- 数据管理面板 - 仅在没有选择文件夹时显示 -->
-        <div v-if="selectedFolders.length === 0" class="mb-8">
-          <DataManagementPanel />
-        </div>
+
 
         <!-- 视频网格 -->
         <VideoGrid
@@ -1109,5 +1136,8 @@ onUnmounted(() => {
         </button>
       </template>
     </div>
+    
+    <!-- 设置面板 -->
+    <SettingsPanel v-if="showSettingsPanel" @close="closeSettings" />
   </div>
 </template>
