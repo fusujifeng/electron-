@@ -14,7 +14,7 @@ import type { Video } from './stores/videoStore'
 const videoStore = useVideoStore()
 
 // 响应式数据
-const selectedFolder = ref('')
+const selectedFolders = ref<string[]>([])
 const searchQuery = ref('')
 const selectedCategory = ref('all')
 const isLoading = ref(false)
@@ -44,11 +44,14 @@ const sortOptions = [
   { value: 'time-asc', label: '按时间排序（旧到新）', icon: '🕐' }
 ]
 
-// 导航历史记录
-const navigationHistory = ref<string[]>([])
+// 导航历史记录（存储文件夹数组的历史状态）
+const navigationHistory = ref<string[][]>([])
 const currentFolderName = computed(() => {
-  if (!selectedFolder.value) return ''
-  return selectedFolder.value.split(/[\\/]/).pop() || ''
+  if (selectedFolders.value.length === 0) return ''
+  if (selectedFolders.value.length === 1) {
+    return selectedFolders.value[0].split(/[\\/]/).pop() || ''
+  }
+  return `${selectedFolders.value.length} 个文件夹`
 })
 const canGoBack = computed(() => navigationHistory.value.length > 0)
 const categories = computed(() => {
@@ -75,17 +78,31 @@ const categories = computed(() => {
   return baseCategories
 })
 
-// 选择文件夹
-const selectFolder = async (folderPath?: string) => {
+// 选择文件夹（支持多选）
+const selectFolders = async (folderPaths: string[]) => {
   try {
-    if (folderPath) {
+    if (folderPaths && folderPaths.length > 0) {
       clearNavigationHistory()
-      selectedFolder.value = folderPath
-      videoStore.updateSettings({ lastSelectedFolder: folderPath })
+      selectedFolders.value = folderPaths
+      videoStore.updateSettings({ lastSelectedFolder: folderPaths[0] })
       await loadVideos()
     }
   } catch (error) {
     console.error('选择文件夹失败:', error)
+  }
+}
+
+// 移除文件夹
+const removeFolder = async (folderPath: string) => {
+  try {
+    selectedFolders.value = selectedFolders.value.filter(path => path !== folderPath)
+    if (selectedFolders.value.length > 0) {
+      await loadVideos()
+    } else {
+      videoStore.clearVideos()
+    }
+  } catch (error) {
+    console.error('移除文件夹失败:', error)
   }
 }
 
@@ -94,7 +111,7 @@ const handleSelectFolderClick = async () => {
   try {
     const result = await (window as any).api?.selectFolder()
     if (result?.success && result.folderPath) {
-      await selectFolder(result.folderPath as string)
+      await selectFolders([result.folderPath as string])
     }
   } catch (error) {
     console.error('选择文件夹失败:', error)
@@ -138,7 +155,7 @@ const importData = () => {
             const success = videoStore.importData(jsonData)
             if (success) {
               showToast('✅ 数据导入成功', 'success')
-              if (selectedFolder.value) {
+              if (selectedFolders.value.length > 0) {
                 loadVideos()
               }
             } else {
@@ -161,14 +178,14 @@ const importData = () => {
 
 // 刷新文件夹
 const refreshFolder = async () => {
-  if (selectedFolder.value) {
+  if (selectedFolders.value.length > 0) {
     await loadVideos()
   }
 }
 
-// 加载视频文件
+// 加载视频文件（支持多文件夹）
 const loadVideos = async () => {
-  if (!selectedFolder.value) {
+  if (selectedFolders.value.length === 0) {
     return
   }
 
@@ -176,28 +193,30 @@ const loadVideos = async () => {
     isLoading.value = true
     videoStore.clearVideos()
 
-    const result = await (window as any).api?.scanFolder(selectedFolder.value)
+    // 遍历所有选中的文件夹
+    for (const folderPath of selectedFolders.value) {
+      const result = await (window as any).api?.scanFolder(folderPath)
 
-    if (result?.success && result.items) {
-      result.items.forEach(item => {
-        if (item.type === 'video') {
-          const video = {
-            id: `video_${Date.now()}_${Math.random()}`,
-            name: item.name,
-            title: item.name.replace(/\.[^/.]+$/, ''),
-            path: item.path,
-            thumbnail: '/default-thumbnail.jpg',
-            duration: 0,
-            size: item.size || 0,
-            category: detectCategory(item.name),
-            tags: generateTags(item.name),
-            createdAt: new Date(),
-            playCount: 0,
-            rating: 0,
-            isFolder: false
-          }
-          videoStore.addVideo(video)
-        } else if (item.type === 'folder') {
+      if (result?.success && result.items) {
+        result.items.forEach(item => {
+          if (item.type === 'video') {
+            const video = {
+              id: `video_${Date.now()}_${Math.random()}`,
+              name: item.name,
+              title: item.name.replace(/\.[^/.]+$/, ''),
+              path: item.path,
+              thumbnail: '/default-thumbnail.jpg',
+              duration: 0,
+              size: item.size || 0,
+              category: detectCategory(item.name),
+              tags: generateTags(item.name),
+              createdAt: new Date(),
+              playCount: 0,
+              rating: 0,
+              isFolder: false
+            }
+            videoStore.addVideo(video)
+          } else if (item.type === 'folder') {
           const folderItem = {
             id: `folder_${Date.now()}_${Math.random()}`,
             name: item.name,
@@ -236,8 +255,12 @@ const loadVideos = async () => {
     } else {
       console.error('扫描文件夹失败:', result?.error)
     }
+  }
 
-    await checkIsDeepestFolder(selectedFolder.value)
+    // 检查是否为最深层文件夹（使用第一个文件夹）
+    if (selectedFolders.value.length > 0) {
+      await checkIsDeepestFolder(selectedFolders.value[0])
+    }
 
   } catch (error) {
     console.error('加载视频失败:', error)
@@ -273,12 +296,13 @@ const generateTags = (filename: string): string[] => {
 
 // 处理文件夹选择（新增）
 const handleFolderSelect = async (folderPath: string) => {
-  // 将当前路径添加到历史记录
-  if (selectedFolder.value && selectedFolder.value !== folderPath) {
-    navigationHistory.value.push(selectedFolder.value)
+  // 将当前的多文件夹选择状态保存到历史记录
+  if (selectedFolders.value.length > 0 && !selectedFolders.value.includes(folderPath)) {
+    // 保存当前完整的文件夹数组状态
+    navigationHistory.value.push([...selectedFolders.value])
   }
 
-  selectedFolder.value = folderPath
+  selectedFolders.value = [folderPath]
   videoStore.updateSettings({ lastSelectedFolder: folderPath })
   await loadVideos()
 }
@@ -286,10 +310,11 @@ const handleFolderSelect = async (folderPath: string) => {
 // 回退到上一个文件夹
 const goBack = async () => {
   if (navigationHistory.value.length > 0) {
-    const previousPath = navigationHistory.value.pop()
-    if (previousPath) {
-      selectedFolder.value = previousPath
-      videoStore.updateSettings({ lastSelectedFolder: previousPath })
+    // 从历史记录中取出最后一个状态（完整的文件夹数组）
+    const previousState = navigationHistory.value.pop()
+    if (previousState && Array.isArray(previousState)) {
+      selectedFolders.value = [...previousState]
+      videoStore.updateSettings({ lastSelectedFolder: previousState[0] })
       await loadVideos()
     }
   }
@@ -411,7 +436,40 @@ const playFirstVideo = async () => {
       
       if (firstVideo) {
         // 使用系统默认应用打开视频
-        await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
+        const openResult = await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
+        
+        if (!openResult?.success) {
+          console.error('打开视频失败:', openResult?.error)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('播放视频失败:', error)
+  }
+}
+
+// 播放所有文件夹中的第一个视频
+const playFirstVideoFromAllFolders = async () => {
+  if (selectedFolders.value.length === 0) {
+    return
+  }
+
+  try {
+    // 遍历所有文件夹，找到第一个视频
+    for (const folderPath of selectedFolders.value) {
+      const result = await (window as any).api?.scanFolder(folderPath)
+      
+      if (result?.success && result.items) {
+        const firstVideo = result.items.find(item => item.type === 'video')
+        
+        if (firstVideo) {
+          // 使用系统默认应用打开视频
+          const openResult = await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
+          
+          if (openResult?.success) {
+            return // 成功播放第一个找到的视频后退出
+          }
+        }
       }
     }
   } catch (error) {
@@ -501,13 +559,13 @@ const closeContextMenu = () => {
 const pasteClipboardImage = async () => {
   closeContextMenu()
 
-  if (!selectedFolder.value) {
+  if (selectedFolders.value.length === 0) {
     showToast('❌ 请先选择一个文件夹', 'error')
     return
   }
 
   try {
-    const result = await window.api.saveClipboardImage(selectedFolder.value)
+    const result = await window.api.saveClipboardImage(selectedFolders.value[0])
 
     if (result?.success) {
       await loadVideos()
@@ -549,7 +607,7 @@ const handleDocumentClick = (event: Event) => {
 const setAsCover = async () => {
   closeContextMenu()
 
-  if (!selectedImagePath.value || !selectedFolder.value) {
+  if (!selectedImagePath.value || selectedFolders.value.length === 0) {
     showToast('❌ 设置封面失败：未选择图片', 'error')
     return
   }
@@ -631,7 +689,7 @@ onMounted(async () => {
 
   const lastFolder = videoStore.settings.lastSelectedFolder
   if (lastFolder) {
-    selectedFolder.value = lastFolder
+    selectedFolders.value = [lastFolder]
     await loadVideos()
   }
 })
@@ -713,7 +771,7 @@ onUnmounted(() => {
             <div class="flex items-center space-x-3 ml-6">
               <!-- 文件夹选择按钮（当没有选择文件夹时显示） -->
               <button
-                v-if="!selectedFolder"
+                v-if="selectedFolders.length === 0"
                 @click="handleSelectFolderClick"
                 class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-600 rounded-xl transition-all duration-300 hover:scale-105 border border-purple-200 hover:border-purple-300 shadow-sm hover:shadow-md"
                 title="选择文件夹"
@@ -725,7 +783,7 @@ onUnmounted(() => {
               </button>
 
               <!-- 文件夹导航区域（当已选择文件夹时显示） -->
-              <template v-if="selectedFolder">
+              <template v-if="selectedFolders.length > 0">
               <!-- 回退按钮 -->
               <button
                 v-if="canGoBack"
@@ -744,7 +802,7 @@ onUnmounted(() => {
                 <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                 </svg>
-                <span class="text-sm text-gray-700 font-medium max-w-xs truncate" :title="selectedFolder">
+                <span class="text-sm text-gray-700 font-medium max-w-xs truncate" :title="selectedFolders.join(', ')">
                   {{ currentFolderName || '根目录' }}
                 </span>
               </div>
@@ -804,6 +862,8 @@ onUnmounted(() => {
                      <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                    </div>
                   </button>
+
+
               </div>
 
                 <!-- 排序下拉框 -->
@@ -850,6 +910,19 @@ onUnmounted(() => {
       </div>
     </header>
 
+    <!-- 多文件夹选择栏 - 固定在顶部 -->
+    <div v-if="selectedFolders.length > 0" class="sticky top-20 z-40 backdrop-blur-xl bg-white/90 border-b border-gray-100/50 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <FolderSelector
+          :selected-folders="selectedFolders"
+          :is-loading="isLoading"
+          @select="selectFolders"
+          @refresh="refreshFolder"
+          @remove="removeFolder"
+        />
+      </div>
+    </div>
+
     <!-- 主要内容区域 -->
     <main class="flex-1 flex">
       <!-- 左侧内容区域 -->
@@ -862,17 +935,16 @@ onUnmounted(() => {
         @contextmenu="handleContextMenu"
       >
         <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
-        <!-- 文件夹选择区域 -->
-      <div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <FolderSelector
-          :selected-folder="selectedFolder"
-          :is-loading="isLoading"
-          :can-go-back="canGoBack"
-          @select="selectFolder"
-          @refresh="refreshFolder"
-          @go-back="goBack"
-        />
-      </div>
+        <!-- 文件夹选择区域 - 仅在没有选择文件夹时显示 -->
+        <div v-if="selectedFolders.length === 0" class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <FolderSelector
+            :selected-folders="selectedFolders"
+            :is-loading="isLoading"
+            @select="selectFolders"
+            @refresh="refreshFolder"
+            @remove="removeFolder"
+          />
+        </div>
 
         <!-- 视频网格 -->
         <VideoGrid
@@ -881,7 +953,7 @@ onUnmounted(() => {
           :selected-category="selectedCategory"
           :sort-by="sortBy"
           :is-loading="isLoading"
-          :current-folder="selectedFolder"
+          :current-folder="selectedFolders.length > 0 ? selectedFolders[0] : ''"
           :is-deepest-folder="isDeepestFolder"
           @video-update="handleVideoUpdate"
           @video-play="handleVideoPlay"
