@@ -434,15 +434,15 @@ const playFirstVideo = async () => {
   try {
     // 扫描文件夹获取视频文件
     const result = await (window as any).api?.scanFolder(selectedPreviewImage.value.path)
-    
+
     if (result?.success && result.items) {
       // 查找第一个视频文件
       const firstVideo = result.items.find(item => item.type === 'video')
-      
+
       if (firstVideo) {
         // 使用系统默认应用打开视频
         const openResult = await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
-        
+
         if (!openResult?.success) {
           console.error('打开视频失败:', openResult?.error)
         }
@@ -463,14 +463,14 @@ const playFirstVideoFromAllFolders = async () => {
     // 遍历所有文件夹，找到第一个视频
     for (const folderPath of selectedFolders.value) {
       const result = await (window as any).api?.scanFolder(folderPath)
-      
+
       if (result?.success && result.items) {
         const firstVideo = result.items.find(item => item.type === 'video')
-        
+
         if (firstVideo) {
           // 使用系统默认应用打开视频
           const openResult = await (window as any).api?.openFileWithDefaultApp(firstVideo.path)
-          
+
           if (openResult?.success) {
             return // 成功播放第一个找到的视频后退出
           }
@@ -784,17 +784,7 @@ onUnmounted(() => {
             <!-- 导航区域 -->
             <div class="flex items-center space-x-3 ml-6">
               <!-- 文件夹选择按钮（当没有选择文件夹时显示） -->
-              <button
-                v-if="selectedFolders.length === 0"
-                @click="handleSelectFolderClick"
-                class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-600 rounded-xl transition-all duration-300 hover:scale-105 border border-purple-200 hover:border-purple-300 shadow-sm hover:shadow-md"
-                title="选择文件夹"
-              >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                <span class="text-sm font-medium">选择文件夹</span>
-              </button>
+
 
               <!-- 文件夹导航区域（当已选择文件夹时显示） -->
               <template v-if="selectedFolders.length > 0">
@@ -919,7 +909,7 @@ onUnmounted(() => {
               :selected-category="selectedCategory"
               @change="handleCategoryChange"
             />
-            
+
             <!-- 设置按钮 -->
             <button
               @click="openSettings"
@@ -1076,7 +1066,7 @@ onUnmounted(() => {
                 </svg>
                 <span>进入文件夹</span>
               </button>
-              
+
               <!-- 播放视频按钮 -->
               <button
                 @click="playFirstVideo"
@@ -1136,7 +1126,7 @@ onUnmounted(() => {
         </button>
       </template>
     </div>
-    
+
     <!-- 设置面板 -->
     <SettingsPanel v-if="showSettingsPanel" @close="closeSettings" />
   </div>
