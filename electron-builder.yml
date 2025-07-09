@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: fengvideoplayer
+productName: 澪妹管理大师
 directories:
   buildResources: build
 files:

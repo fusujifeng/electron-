@@ -1,7 +1,8 @@
 {
-  "name": "fengvideoplayer",
+  "name": "LingMeiVideoManager",
+  "productName": "澪妹管理大师",
   "version": "1.0.0",
-  "description": "An Electron application with Vue and TypeScript",
+  "description": "视频管理大师",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
