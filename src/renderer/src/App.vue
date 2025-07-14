@@ -537,8 +537,16 @@ const pasteClipboardImage = async () => {
   }
 
   try {
-    const result = await window.api.saveClipboardImage(selectedFolders.value[0])
+    console.log(selectedFolders.value)
 
+    // 确保selectedFolders.value存在且有值
+    if (!selectedFolders.value || selectedFolders.value.length === 0) {
+      showToast('❌ 请先选择一个文件夹', 'error')
+      return
+    }
+    
+    const result = await window.api.saveClipboardImage(selectedFolders.value[0])
+    console.log(result)
     if (result?.success) {
       await loadVideos()
       showToast(`✅ 图片保存成功！文件名: ${result.fileName}`, 'success')

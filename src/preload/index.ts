@@ -5,7 +5,10 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:openDirectory', options),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('scan-folder', folderPath),
-  openFileWithDefaultApp: (filePath: string) => ipcRenderer.invoke('open-file-with-default-app', filePath)
+  openFileWithDefaultApp: (filePath: string) => ipcRenderer.invoke('open-file-with-default-app', filePath),
+  saveClipboardImage: (folderPath: string) => ipcRenderer.invoke('save-clipboard-image', folderPath),
+  setAsCover: (imagePath: string) => ipcRenderer.invoke('set-as-cover', imagePath),
+  deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
