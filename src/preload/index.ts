@@ -8,7 +8,8 @@ const api = {
   openFileWithDefaultApp: (filePath: string) => ipcRenderer.invoke('open-file-with-default-app', filePath),
   saveClipboardImage: (folderPath: string) => ipcRenderer.invoke('save-clipboard-image', folderPath),
   setAsCover: (imagePath: string) => ipcRenderer.invoke('set-as-cover', imagePath),
-  deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath)
+  deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
+  openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

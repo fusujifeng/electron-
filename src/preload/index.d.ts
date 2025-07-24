@@ -7,6 +7,7 @@ interface CustomAPI {
   saveClipboardImage: (folderPath: string) => Promise<{success: boolean, fileName?: string, error?: string}>
   setAsCover: (imagePath: string) => Promise<{success: boolean, message?: string, error?: string}>
   deleteFile: (filePath: string) => Promise<{success: boolean, error?: string}>
+  openInExplorer: (folderPath: string) => Promise<{success: boolean, error?: string}>
 }
 
 declare global {

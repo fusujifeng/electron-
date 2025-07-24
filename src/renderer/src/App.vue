@@ -13,8 +13,6 @@ import type { Video } from './stores/videoStore'
 // 引入类型声明
 /// <reference path="../../preload/index.d.ts" />
 
-
-
 // 使用 Pinia store
 const videoStore = useVideoStore()
 
@@ -75,11 +73,11 @@ const categories = computed(() => {
   ]
 
   // 更新分类计数
-  baseCategories.forEach(category => {
+  baseCategories.forEach((category) => {
     if (category.id === 'all') {
       category.count = videoStore.videos.length
     } else {
-      category.count = videoStore.videos.filter(video => video.category === category.id).length
+      category.count = videoStore.videos.filter((video) => video.category === category.id).length
     }
   })
 
@@ -103,7 +101,7 @@ const selectFolders = async (folderPaths: string[]) => {
 // 移除文件夹
 const removeFolder = async (folderPath: string) => {
   try {
-    selectedFolders.value = selectedFolders.value.filter(path => path !== folderPath)
+    selectedFolders.value = selectedFolders.value.filter((path) => path !== folderPath)
     if (selectedFolders.value.length > 0) {
       await loadVideos()
     } else {
@@ -113,8 +111,6 @@ const removeFolder = async (folderPath: string) => {
     console.error('移除文件夹失败:', error)
   }
 }
-
-
 
 // 导出数据
 const exportData = () => {
@@ -196,7 +192,7 @@ const loadVideos = async () => {
       const result = await (window as any).api?.scanFolder(folderPath)
 
       if (result?.success && result.items) {
-        result.items.forEach(item => {
+        result.items.forEach((item) => {
           if (item.type === 'video') {
             const video = {
               id: `video_${Date.now()}_${Math.random()}`,
@@ -215,51 +211,52 @@ const loadVideos = async () => {
             }
             videoStore.addVideo(video)
           } else if (item.type === 'folder') {
-          const folderItem = {
-            id: `folder_${Date.now()}_${Math.random()}`,
-            name: item.name,
-            title: item.name,
-            path: item.path,
-            thumbnail: item.coverImage ? `local-image://${encodeURIComponent(item.coverImage.replace(/\\/g, '/'))}` : '/folder-icon.svg',
-            duration: 0,
-            size: 0,
-            category: 'folder',
-            tags: ['文件夹'],
-            createdAt: new Date(),
-            playCount: 0,
-            rating: 0,
-            isFolder: true
+            const folderItem = {
+              id: `folder_${Date.now()}_${Math.random()}`,
+              name: item.name,
+              title: item.name,
+              path: item.path,
+              thumbnail: item.coverImage
+                ? `local-image://${encodeURIComponent(item.coverImage.replace(/\\/g, '/'))}`
+                : '/folder-icon.svg',
+              duration: 0,
+              size: 0,
+              category: 'folder',
+              tags: ['文件夹'],
+              createdAt: new Date(),
+              playCount: 0,
+              rating: 0,
+              isFolder: true
+            }
+            videoStore.addVideo(folderItem)
+          } else if (item.type === 'image') {
+            const image = {
+              id: `image_${Date.now()}_${Math.random()}`,
+              name: item.name,
+              title: item.name.replace(/\.[^/.]+$/, ''),
+              path: item.path,
+              thumbnail: item.path,
+              duration: 0,
+              size: item.size || 0,
+              category: 'image',
+              tags: ['图片'],
+              createdAt: new Date(),
+              playCount: 0,
+              rating: 0,
+              isFolder: false
+            }
+            videoStore.addVideo(image)
           }
-          videoStore.addVideo(folderItem)
-        } else if (item.type === 'image') {
-          const image = {
-            id: `image_${Date.now()}_${Math.random()}`,
-            name: item.name,
-            title: item.name.replace(/\.[^/.]+$/, ''),
-            path: item.path,
-            thumbnail: item.path,
-            duration: 0,
-            size: item.size || 0,
-            category: 'image',
-            tags: ['图片'],
-            createdAt: new Date(),
-            playCount: 0,
-            rating: 0,
-            isFolder: false
-          }
-          videoStore.addVideo(image)
-        }
-      })
-    } else {
-      console.error('扫描文件夹失败:', result?.error)
+        })
+      } else {
+        console.error('扫描文件夹失败:', result?.error)
+      }
     }
-  }
 
     // 检查是否为最深层文件夹（使用第一个文件夹）
     if (selectedFolders.value.length > 0) {
       await checkIsDeepestFolder(selectedFolders.value[0])
     }
-
   } catch (error) {
     console.error('加载视频失败:', error)
   } finally {
@@ -267,13 +264,12 @@ const loadVideos = async () => {
   }
 }
 
-
-
 // 根据文件名检测分类
 const detectCategory = (filename: string): string => {
   const name = filename.toLowerCase()
   if (name.includes('movie') || name.includes('电影')) return 'movie'
-  if (name.includes('tv') || name.includes('剧集') || name.includes('s0') || name.includes('e0')) return 'tv'
+  if (name.includes('tv') || name.includes('剧集') || name.includes('s0') || name.includes('e0'))
+    return 'tv'
   if (name.includes('documentary') || name.includes('纪录片')) return 'documentary'
   if (name.includes('animation') || name.includes('动画')) return 'animation'
   if (name.includes('variety') || name.includes('综艺')) return 'variety'
@@ -305,6 +301,19 @@ const handleFolderSelect = async (folderPath: string) => {
   await loadVideos()
 }
 
+const openFolderSelect = async (folderPath: string) => {
+  try {
+    const result = await window.api.openInExplorer(folderPath)
+    if (!result.success) {
+      console.error('打开文件夹失败:', result.error)
+      showToast(`❌ 无法打开文件夹: ${result.error || '未知错误'}`, 'error')
+    }
+  } catch (error) {
+    console.error('打开文件夹时发生异常:', error)
+    showToast('❌ 打开文件夹失败', 'error')
+  }
+}
+
 // 回退到上一个文件夹
 const goBack = async () => {
   if (navigationHistory.value.length > 0) {
@@ -318,14 +327,10 @@ const goBack = async () => {
   }
 }
 
-
-
 // 清空导航历史
 const clearNavigationHistory = () => {
   navigationHistory.value = []
 }
-
-
 
 // 处理搜索
 const handleSearch = (query: string) => {
@@ -402,7 +407,7 @@ const checkIsDeepestFolder = async (folderPath: string) => {
   try {
     const result = await (window as any).api?.scanFolder(folderPath)
     if (result?.success && result.items) {
-      const hasSubfolders = result.items.some(item => item.type === 'folder')
+      const hasSubfolders = result.items.some((item) => item.type === 'folder')
       isDeepestFolder.value = !hasSubfolders
     }
   } catch (error) {
@@ -430,7 +435,7 @@ const playFirstVideo = async () => {
 
     if (result?.success && result.items) {
       // 查找第一个视频文件
-      const firstVideo = result.items.find(item => item.type === 'video')
+      const firstVideo = result.items.find((item) => item.type === 'video')
 
       if (firstVideo) {
         // 使用系统默认应用打开视频
@@ -447,7 +452,6 @@ const playFirstVideo = async () => {
 }
 
 // 播放所有文件夹中的第一个视频
-
 
 // 窗口大小变化处理
 const handleResize = () => {
@@ -507,7 +511,6 @@ const handleContextMenu = (event: MouseEvent) => {
     contextMenuType.value = 'image'
     contextMenuPosition.value = { x: event.clientX, y: event.clientY }
     showContextMenu.value = true
-
   } else if (videoCard) {
     // 在视频卡片内部，不显示任何菜单（无反应）
     return
@@ -544,7 +547,7 @@ const pasteClipboardImage = async () => {
       showToast('❌ 请先选择一个文件夹', 'error')
       return
     }
-    
+
     const result = await window.api.saveClipboardImage(selectedFolders.value[0])
     console.log(result)
     if (result?.success) {
@@ -554,9 +557,11 @@ const pasteClipboardImage = async () => {
       // 根据错误类型提供不同的提示
       let errorMessage = result?.error || '未知错误'
       if (errorMessage.includes('剪贴板中没有图片')) {
-        errorMessage = '❌ 剪贴板中没有图片\n\n请先复制图片到剪贴板：\n1. 使用QQ截图或其他工具截图\n2. 复制图片文件\n3. 然后再尝试粘贴'
+        errorMessage =
+          '❌ 剪贴板中没有图片\n\n请先复制图片到剪贴板：\n1. 使用QQ截图或其他工具截图\n2. 复制图片文件\n3. 然后再尝试粘贴'
       } else if (errorMessage.includes('没有写入权限')) {
-        errorMessage = '❌ 文件夹没有写入权限\n\n请检查：\n1. 文件夹是否存在\n2. 是否有管理员权限\n3. 文件夹是否被其他程序占用'
+        errorMessage =
+          '❌ 文件夹没有写入权限\n\n请检查：\n1. 文件夹是否存在\n2. 是否有管理员权限\n3. 文件夹是否被其他程序占用'
       } else if (errorMessage.includes('文件夹不存在')) {
         errorMessage = '❌ 目标文件夹不存在\n\n请重新选择一个有效的文件夹'
       }
@@ -565,7 +570,9 @@ const pasteClipboardImage = async () => {
     }
   } catch (error) {
     console.error('保存剪贴板图片时发生异常:', error)
-    alert('❌ 保存失败\n\n发生了意外错误，请：\n1. 检查剪贴板中是否有图片\n2. 确认文件夹路径正确\n3. 重启应用程序后重试')
+    alert(
+      '❌ 保存失败\n\n发生了意外错误，请：\n1. 检查剪贴板中是否有图片\n2. 确认文件夹路径正确\n3. 重启应用程序后重试'
+    )
   }
 }
 
@@ -717,7 +724,12 @@ onUnmounted(() => {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 13l4 4L19 7"
+          ></path>
         </svg>
         <svg
           v-else-if="toastType === 'error'"
@@ -726,7 +738,12 @@ onUnmounted(() => {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          ></path>
         </svg>
         <svg
           v-else-if="toastType === 'info'"
@@ -735,7 +752,12 @@ onUnmounted(() => {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
         </svg>
         <span class="text-sm font-medium">{{ toastMessage }}</span>
       </div>
@@ -746,13 +768,24 @@ onUnmounted(() => {
         <div class="flex items-center justify-between h-20">
           <!-- Logo、标题和导航 -->
           <div class="flex items-center space-x-4">
-            <div class="flex-shrink-0 p-2 bg-gradient-to-br from-pink-400 to-red-400 rounded-2xl shadow-lg">
+            <div
+              class="flex-shrink-0 p-2 bg-gradient-to-br from-pink-400 to-red-400 rounded-2xl shadow-lg"
+            >
               <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                ></path>
               </svg>
             </div>
             <div>
-              <h1 class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-red-500 bg-clip-text text-transparent">视频小记</h1>
+              <h1
+                class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-red-500 bg-clip-text text-transparent"
+              >
+                视频小记
+              </h1>
               <p class="text-xs text-gray-500 font-medium">发现美好视频</p>
             </div>
 
@@ -760,90 +793,125 @@ onUnmounted(() => {
             <div class="flex items-center space-x-3 ml-6">
               <!-- 文件夹选择按钮（当没有选择文件夹时显示） -->
 
-
               <!-- 文件夹导航区域（当已选择文件夹时显示） -->
               <template v-if="selectedFolders.length > 0">
-              <!-- 回退按钮 -->
-              <button
-                v-if="canGoBack"
-                @click="goBack"
-                class="flex items-center space-x-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition-all duration-300 hover:scale-105 border border-blue-200"
-                title="返回上一级"
-              >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
-                <span class="text-sm font-medium">返回</span>
-              </button>
-
-              <!-- 当前路径显示 -->
-              <div class="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200">
-                <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-                </svg>
-                <span class="text-sm text-gray-700 font-medium max-w-xs truncate" :title="selectedFolders.join(', ')">
-                  {{ currentFolderName || '根目录' }}
-                </span>
-              </div>
-
-              <!-- 操作按钮组 -->
-              <div class="flex items-center space-x-2">
-                <!-- 导入按钮 -->
+                <!-- 回退按钮 -->
                 <button
-                  @click="importData"
-                  class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                  title="导入数据"
+                  v-if="canGoBack"
+                  @click="goBack"
+                  class="flex items-center space-x-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition-all duration-300 hover:scale-105 border border-blue-200"
+                  title="返回上一级"
                 >
-                  <svg
-                    class="h-5 w-5 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 19l-7-7 7-7"
+                    ></path>
                   </svg>
+                  <span class="text-sm font-medium">返回</span>
                 </button>
 
-                <!-- 导出按钮 -->
-                <button
-                  @click="exportData"
-                  class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border border-purple-200 hover:border-purple-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                  title="导出数据"
+                <!-- 当前路径显示 -->
+                <div
+                  class="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200"
                 >
                   <svg
-                    class="h-5 w-5 text-purple-600"
+                    class="h-4 w-4 text-gray-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                    ></path>
                   </svg>
-                </button>
+                  <span
+                    class="text-sm text-gray-700 font-medium max-w-xs truncate"
+                    :title="selectedFolders.join(', ')"
+                  >
+                    {{ currentFolderName || '根目录' }}
+                  </span>
+                </div>
 
-                <!-- 刷新按钮 -->
-                <button
-                  @click="refreshFolder"
-                  :disabled="isLoading"
-                  class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="刷新文件夹"
-                >
-                  <svg
-                    class="h-5 w-5 text-green-600 transition-transform duration-500 group-hover:rotate-180"
-                    :class="{ 'animate-spin': isLoading }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                <!-- 操作按钮组 -->
+                <div class="flex items-center space-x-2">
+                  <!-- 导入按钮 -->
+                  <button
+                    @click="importData"
+                    class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                    title="导入数据"
                   >
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                  <!-- 加载状态指示器 -->
-                  <div v-if="isLoading" class="absolute inset-0 bg-green-100/50 rounded-xl flex items-center justify-center">
-                     <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                   </div>
+                    <svg
+                      class="h-5 w-5 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
+                      ></path>
+                    </svg>
                   </button>
 
+                  <!-- 导出按钮 -->
+                  <button
+                    @click="exportData"
+                    class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border border-purple-200 hover:border-purple-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                    title="导出数据"
+                  >
+                    <svg
+                      class="h-5 w-5 text-purple-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      ></path>
+                    </svg>
+                  </button>
 
-              </div>
+                  <!-- 刷新按钮 -->
+                  <button
+                    @click="refreshFolder"
+                    :disabled="isLoading"
+                    class="group relative flex items-center justify-center w-10 h-10 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="刷新文件夹"
+                  >
+                    <svg
+                      class="h-5 w-5 text-green-600 transition-transform duration-500 group-hover:rotate-180"
+                      :class="{ 'animate-spin': isLoading }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      ></path>
+                    </svg>
+                    <!-- 加载状态指示器 -->
+                    <div
+                      v-if="isLoading"
+                      class="absolute inset-0 bg-green-100/50 rounded-xl flex items-center justify-center"
+                    >
+                      <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    </div>
+                  </button>
+                </div>
 
                 <!-- 排序下拉框 -->
                 <div class="relative">
@@ -862,15 +930,27 @@ onUnmounted(() => {
                     </option>
                   </select>
                   <!-- 下拉箭头 -->
-                  <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                    <svg class="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  <div
+                    class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none"
+                  >
+                    <svg
+                      class="h-4 w-4 text-blue-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 9l-7 7-7-7"
+                      ></path>
                     </svg>
                   </div>
                 </div>
-                </template>
-             </div>
-           </div>
+              </template>
+            </div>
+          </div>
 
           <!-- 搜索栏 -->
           <div class="flex-1 max-w-md mx-8">
@@ -897,8 +977,18 @@ onUnmounted(() => {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                ></path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                ></path>
               </svg>
             </button>
           </div>
@@ -907,7 +997,10 @@ onUnmounted(() => {
     </header>
 
     <!-- 多文件夹选择栏 - 固定在顶部 -->
-    <div v-if="selectedFolders.length > 0" class="sticky top-20 z-40 backdrop-blur-xl bg-white/90 border-b border-gray-100/50 shadow-sm">
+    <div
+      v-if="selectedFolders.length > 0"
+      class="sticky top-20 z-40 backdrop-blur-xl bg-white/90 border-b border-gray-100/50 shadow-sm"
+    >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <FolderSelector
           :selected-folders="selectedFolders"
@@ -931,36 +1024,37 @@ onUnmounted(() => {
         @contextmenu="handleContextMenu"
       >
         <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
-        <!-- 文件夹选择区域 - 仅在没有选择文件夹时显示 -->
-        <div v-if="selectedFolders.length === 0" class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <FolderSelector
-            :selected-folders="selectedFolders"
+          <!-- 文件夹选择区域 - 仅在没有选择文件夹时显示 -->
+          <div
+            v-if="selectedFolders.length === 0"
+            class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <FolderSelector
+              :selected-folders="selectedFolders"
+              :is-loading="isLoading"
+              @select="selectFolders"
+              @refresh="refreshFolder"
+              @remove="removeFolder"
+            />
+          </div>
+
+          <!-- 视频网格 -->
+          <VideoGrid
+            :videos="videoStore.videos"
+            :search-query="searchQuery"
+            :selected-category="selectedCategory"
+            :sort-by="sortBy"
             :is-loading="isLoading"
-            @select="selectFolders"
-            @refresh="refreshFolder"
-            @remove="removeFolder"
+            :current-folder="selectedFolders.length > 0 ? selectedFolders[0] : ''"
+            :is-deepest-folder="isDeepestFolder"
+            @video-update="handleVideoUpdate"
+            @video-play="handleVideoPlay"
+            @video-favorite="handleVideoFavorite"
+            @folder-select="handleFolderSelect"
+            @folder-preview="handleFolderPreview"
           />
         </div>
-
-
-
-        <!-- 视频网格 -->
-        <VideoGrid
-          :videos="videoStore.videos"
-          :search-query="searchQuery"
-          :selected-category="selectedCategory"
-          :sort-by="sortBy"
-          :is-loading="isLoading"
-          :current-folder="selectedFolders.length > 0 ? selectedFolders[0] : ''"
-          :is-deepest-folder="isDeepestFolder"
-          @video-update="handleVideoUpdate"
-          @video-play="handleVideoPlay"
-          @video-favorite="handleVideoFavorite"
-          @folder-select="handleFolderSelect"
-          @folder-preview="handleFolderPreview"
-        /></div>
-        </div>
-
+      </div>
 
       <!-- 右侧预览面板 -->
       <div
@@ -982,7 +1076,12 @@ onUnmounted(() => {
             title="关闭预览"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
             </svg>
           </button>
         </div>
@@ -991,17 +1090,27 @@ onUnmounted(() => {
         <div class="flex-1 p-4 bg-white overflow-y-auto">
           <div class="space-y-4">
             <!-- 文件夹预览图像 -->
-            <div class="w-full h-[60vh]  bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+            <div
+              class="w-full h-[60vh] bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center"
+            >
               <img
-                v-if="selectedPreviewImage.thumbnail && selectedPreviewImage.thumbnail !== '/folder-icon.svg'"
+                v-if="
+                  selectedPreviewImage.thumbnail &&
+                  selectedPreviewImage.thumbnail !== '/folder-icon.svg'
+                "
                 :src="getPreviewImageSrc(selectedPreviewImage)"
                 :alt="selectedPreviewImage.name"
-                class="w-full h-full object-contain  "
+                class="w-full h-full object-contain"
                 @error="() => {}"
               />
               <div v-else class="flex flex-col items-center justify-center text-gray-400">
                 <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  ></path>
                 </svg>
                 <span class="text-sm">暂无预览图</span>
               </div>
@@ -1009,8 +1118,18 @@ onUnmounted(() => {
 
             <!-- 文件夹信息 -->
             <div class="flex items-center space-x-2">
-              <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+              <svg
+                class="w-4 h-4 text-blue-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                ></path>
               </svg>
               <span class="text-sm text-gray-600">文件夹</span>
             </div>
@@ -1030,16 +1149,47 @@ onUnmounted(() => {
             </div>
 
             <!-- 按钮组 - 推特X风格 -->
-            <div class="flex flex-col space-y-3 mt-6">
+            <div class="flex flex-col space-y-3 mt-2">
               <!-- 进入文件夹按钮 -->
               <button
                 @click="handleFolderSelect(selectedPreviewImage.path)"
-                class="group relative w-full px-6 py-3 bg-black hover:bg-gray-800 text-white rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+                class="group relative w-full px-6 py-6 bg-black hover:bg-gray-800 text-white rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
               >
-                <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                <svg
+                  class="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  ></path>
                 </svg>
                 <span>进入文件夹</span>
+              </button>
+
+              <!-- 打开文件目录按钮 -->
+              <button
+                @click="openFolderSelect(selectedPreviewImage.path)"
+                class="group relative w-full px-6 py-3 bg-black hover:bg-gray-800 text-white rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+              >
+                <svg
+                  class="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  ></path>
+                </svg>
+                <span>打开文件目录</span>
               </button>
 
               <!-- 播放视频按钮 -->
@@ -1047,7 +1197,11 @@ onUnmounted(() => {
                 @click="playFirstVideo"
                 class="group relative w-full px-6 py-3 bg-white hover:bg-gray-50 text-black border border-gray-300 hover:border-gray-400 rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
               >
-                <svg class="w-4 h-4 transition-transform group-hover:scale-110" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  class="w-4 h-4 transition-transform group-hover:scale-110"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path d="M8 5v14l11-7z"></path>
                 </svg>
                 <span>播放视频</span>
@@ -1056,7 +1210,7 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-  </main>
+    </main>
 
     <!-- 右键菜单 -->
     <div
@@ -1072,7 +1226,12 @@ onUnmounted(() => {
           @click="pasteClipboardImage"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+            ></path>
           </svg>
           <span>粘贴图片</span>
         </button>
@@ -1085,7 +1244,12 @@ onUnmounted(() => {
           @click="setAsCover"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            ></path>
           </svg>
           <span>设置为封面</span>
         </button>
@@ -1095,7 +1259,12 @@ onUnmounted(() => {
           @click="deleteImage"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            ></path>
           </svg>
           <span>删除</span>
         </button>
