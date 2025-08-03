@@ -26,7 +26,7 @@ const showPreviewPanel = ref(false)
 const windowWidth = ref(window.innerWidth)
 const isLargeScreen = computed(() => windowWidth.value >= 1536) // 2xl breakpoint
 const isDeepestFolder = ref(false)
-const sortBy = ref('name') // 排序方式：name, size-desc, time-desc, time-asc
+const sortBy = ref('time-desc') // 排序方式：name, size-desc, time-desc, time-asc
 
 // 右键菜单相关
 const showContextMenu = ref(false)
