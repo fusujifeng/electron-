@@ -16,6 +16,7 @@ export interface Video {
   rating?: number
   isFavorite?: boolean
   createdAt?: Date
+  modifiedAt?: Date
   isFolder?: boolean
 }
 

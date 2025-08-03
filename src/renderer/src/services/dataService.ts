@@ -10,6 +10,7 @@ export interface Video {
   category: string
   tags: string[]
   createdAt: Date
+  modifiedAt?: Date
   lastPlayed?: Date
   playCount: number
   rating: number

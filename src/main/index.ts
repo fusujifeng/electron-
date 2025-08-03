@@ -245,7 +245,7 @@ app.whenReady().then(() => {
   // 扫描文件夹中的视频文件和子文件夹
   ipcMain.handle('scan-folder', async (_event, folderPath: string) => {
     try {
-      const items: Array<{type: 'folder' | 'video' | 'image', name: string, path: string, size?: number, isDirectory: boolean, coverImage?: string}> = []
+      const items: Array<{type: 'folder' | 'video' | 'image', name: string, path: string, size?: number, modifiedAt?: string, isDirectory: boolean, coverImage?: string}> = []
 
       const files = await fs.promises.readdir(folderPath, { withFileTypes: true })
 
@@ -257,10 +257,12 @@ app.whenReady().then(() => {
           const coverImage = await findCoverImage(fullPath, file.name)
 
           // 添加子文件夹
+          const stats = await fs.promises.stat(fullPath)
           items.push({
             type: 'folder',
             name: file.name,
             path: fullPath,
+            modifiedAt: stats.mtime.toISOString(),
             isDirectory: true,
             coverImage: coverImage || undefined
           })
@@ -274,6 +276,7 @@ app.whenReady().then(() => {
               name: file.name,
               path: fullPath,
               size: stats.size,
+              modifiedAt: stats.mtime.toISOString(),
               isDirectory: false
             })
           } else if (IMAGE_EXTENSIONS.includes(ext)) {
@@ -284,6 +287,7 @@ app.whenReady().then(() => {
               name: file.name,
               path: fullPath,
               size: stats.size,
+              modifiedAt: stats.mtime.toISOString(),
               isDirectory: false
             })
           }

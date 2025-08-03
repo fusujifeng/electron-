@@ -204,7 +204,8 @@ const loadVideos = async () => {
               size: item.size || 0,
               category: detectCategory(item.name),
               tags: generateTags(item.name),
-              createdAt: new Date(),
+              createdAt: item.modifiedAt ? new Date(item.modifiedAt) : new Date(),
+              modifiedAt: item.modifiedAt ? new Date(item.modifiedAt) : undefined,
               playCount: 0,
               rating: 0,
               isFolder: false
@@ -223,7 +224,8 @@ const loadVideos = async () => {
               size: 0,
               category: 'folder',
               tags: ['文件夹'],
-              createdAt: new Date(),
+              createdAt: item.modifiedAt ? new Date(item.modifiedAt) : new Date(),
+              modifiedAt: item.modifiedAt ? new Date(item.modifiedAt) : undefined,
               playCount: 0,
               rating: 0,
               isFolder: true
@@ -240,7 +242,8 @@ const loadVideos = async () => {
               size: item.size || 0,
               category: 'image',
               tags: ['图片'],
-              createdAt: new Date(),
+              createdAt: item.modifiedAt ? new Date(item.modifiedAt) : new Date(),
+              modifiedAt: item.modifiedAt ? new Date(item.modifiedAt) : undefined,
               playCount: 0,
               rating: 0,
               isFolder: false
@@ -290,15 +293,20 @@ const generateTags = (filename: string): string[] => {
 
 // 处理文件夹选择（新增）
 const handleFolderSelect = async (folderPath: string) => {
-  // 将当前的多文件夹选择状态保存到历史记录
+  // 获取当前滚动容器的滚动位置
+  const scrollContainer = document.querySelector('.video-grid-container') as HTMLElement;
+  const scrollPosition = scrollContainer?.scrollTop || 0;
+  
   if (selectedFolders.value.length > 0 && !selectedFolders.value.includes(folderPath)) {
-    // 保存当前完整的文件夹数组状态
-    navigationHistory.value.push([...selectedFolders.value])
+    navigationHistory.value.push({
+      folders: [...selectedFolders.value],
+      scrollPosition
+    });
   }
-
-  selectedFolders.value = [folderPath]
-  videoStore.updateSettings({ lastSelectedFolder: folderPath })
-  await loadVideos()
+  
+  selectedFolders.value = [folderPath];
+  videoStore.updateSettings({ lastSelectedFolder: folderPath });
+  await loadVideos();
 }
 
 const openFolderSelect = async (folderPath: string) => {
@@ -317,15 +325,26 @@ const openFolderSelect = async (folderPath: string) => {
 // 回退到上一个文件夹
 const goBack = async () => {
   if (navigationHistory.value.length > 0) {
-    // 从历史记录中取出最后一个状态（完整的文件夹数组）
-    const previousState = navigationHistory.value.pop()
-    if (previousState && Array.isArray(previousState)) {
-      selectedFolders.value = [...previousState]
-      videoStore.updateSettings({ lastSelectedFolder: previousState[0] })
-      await loadVideos()
+    const previousState = navigationHistory.value.pop();
+    if (previousState && previousState.folders) {
+      selectedFolders.value = [...previousState.folders];
+      videoStore.updateSettings({ lastSelectedFolder: previousState.folders[0] });
+      await loadVideos();
+      
+      // 确保DOM更新完成后再恢复滚动位置
+      nextTick(() => {
+        const scrollContainer = document.querySelector('.video-grid-container') as HTMLElement;
+        if (scrollContainer && previousState.scrollPosition) {
+          scrollContainer.scrollTop = previousState.scrollPosition;
+          scrollContainer.style.scrollBehavior = 'smooth';
+          setTimeout(() => {
+            scrollContainer.style.scrollBehavior = 'auto';
+          }, 500);
+        }
+      });
     }
   }
-}
+};
 
 // 清空导航历史
 const clearNavigationHistory = () => {

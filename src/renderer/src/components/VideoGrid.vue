@@ -39,7 +39,7 @@ const videoColumns = ref<Video[][]>([]) // 分列的视频数组
 // 过滤后的视频列表
 const filteredVideos = computed(() => {
   let result = props.videos
-  
+
   // 搜索过滤逻辑：
   // 1. 在根目录时：搜索文件夹和其他内容
   // 2. 在非最深层文件夹时：搜索文件夹和其他内容
@@ -50,10 +50,10 @@ const filteredVideos = computed(() => {
       if (video.isFolder) {
         // 搜索文件夹标题
         const titleMatch = video.title.toLowerCase().includes(query)
-        
+
         // 搜索文件夹的tags
         const folderTagsMatch = videoStore.folderTags[video.path]?.some(tag => tag.toLowerCase().includes(query))
-        
+
         return titleMatch || folderTagsMatch
       } else {
         // 搜索非文件夹内容（视频、图片等）
@@ -64,12 +64,12 @@ const filteredVideos = computed(() => {
     })
   }
   // 在最深层文件夹时，不进行搜索过滤，显示所有内容
-  
+
   // 分类过滤
   if (props.selectedCategory !== 'all') {
     result = result.filter(video => video.category === props.selectedCategory)
   }
-  
+
   // 排序
   if (props.sortBy) {
     switch (props.sortBy) {
@@ -85,15 +85,15 @@ const filteredVideos = computed(() => {
         break
       case 'time-desc':
         result = result.sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          const timeA = a.modifiedAt ? new Date(a.modifiedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0)
+          const timeB = b.modifiedAt ? new Date(b.modifiedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0)
           return timeB - timeA
         })
         break
       case 'time-asc':
         result = result.sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          const timeA = a.modifiedAt ? new Date(a.modifiedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0)
+          const timeB = b.modifiedAt ? new Date(b.modifiedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0)
           return timeA - timeB
         })
         break
@@ -102,7 +102,7 @@ const filteredVideos = computed(() => {
         result = result.sort((a, b) => (a.name || a.title).localeCompare(b.name || b.title))
     }
   }
-  
+
   return result
 })
 
@@ -118,9 +118,9 @@ const columnWidth = computed(() => {
 // 响应式列数调整
 const updateColumns = () => {
   if (!containerRef.value) return
-  
+
   const width = containerRef.value?.offsetWidth || 0
-  
+
   if (width >= 1400) {
     columns.value = 6
   } else if (width >= 1200) {
@@ -137,9 +137,9 @@ const updateColumns = () => {
 // 加载更多视频
 const loadMore = () => {
   if (isLoadingMore.value) return
-  
+
   isLoadingMore.value = true
-  
+
   setTimeout(() => {
     const newCount = Math.min(loadedCount.value + 20, filteredVideos.value.length)
     loadedCount.value = newCount
@@ -180,15 +180,15 @@ const updateMasonryLayout = () => {
   // 初始化列数组和高度数组
   columnHeights.value = new Array(columns.value).fill(0)
   videoColumns.value = new Array(columns.value).fill(null).map(() => [])
-  
+
   // 将视频分配到各列
   visibleVideos.value?.forEach((video) => {
     // 找到高度最小的列
     const minHeightIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value))
-    
+
     // 将视频添加到该列
     videoColumns.value[minHeightIndex].push(video)
-    
+
     // 估算视频卡片高度（这里使用一个基础高度加上随机值来模拟不同高度）
     const estimatedHeight = video.isFolder ? 200 : (video.category === 'image' ? 250 : 300)
     columnHeights.value[minHeightIndex] += estimatedHeight + 16 // 16px gap
@@ -200,7 +200,7 @@ const handleScroll = () => {
   const scrollTop = window.pageYOffset || document.documentElement.scrollTop
   const windowHeight = window.innerHeight
   const documentHeight = document.documentElement.scrollHeight
-  
+
   // 距离底部100px时加载更多
   if (scrollTop + windowHeight >= documentHeight - 100) {
     if (loadedCount.value < filteredVideos.value.length) {
@@ -250,22 +250,22 @@ onUnmounted(() => {
         <span v-else>选择的文件夹中没有视频文件</span>
       </p>
     </div>
-    
+
     <!-- 瀑布流布局 -->
     <div v-else class="masonry-container" :style="{ gap: '16px' }">
-      <div 
-        v-for="(columnVideos, columnIndex) in videoColumns" 
+      <div
+        v-for="(columnVideos, columnIndex) in videoColumns"
         :key="columnIndex"
         class="masonry-column"
         :style="{ width: columnWidth }"
       >
-        <div 
-          v-for="video in columnVideos" 
+        <div
+          v-for="video in columnVideos"
           :key="video.id"
           class="video-item mb-4"
         >
           <!-- 根据文件类型使用不同的组件 -->
-          <VideoCard 
+          <VideoCard
             v-if="video.category !== 'image'"
             :video="video"
             @update="handleVideoUpdate"
@@ -274,7 +274,7 @@ onUnmounted(() => {
             @folder-select="handleFolderSelect"
             @folder-preview="handleFolderPreview"
           />
-          <ImgCard 
+          <ImgCard
             v-else
             :image="video"
             @update="handleVideoUpdate"
@@ -283,19 +283,19 @@ onUnmounted(() => {
           />
         </div>
       </div>
-      
+
       <!-- 加载更多指示器 -->
-      <div 
-        v-if="isLoadingMore" 
+      <div
+        v-if="isLoadingMore"
         class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full shadow-lg px-4 py-2 flex items-center space-x-2"
       >
         <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
         <span class="text-sm text-gray-600">加载更多...</span>
       </div>
-      
+
       <!-- 到底了提示 -->
-      <div 
-        v-if="loadedCount >= filteredVideos.length && filteredVideos.length > 0" 
+      <div
+        v-if="loadedCount >= filteredVideos.length && filteredVideos.length > 0"
         class="text-center py-8 text-gray-500"
       >
         <div class="text-2xl mb-2">🎯</div>
@@ -338,7 +338,7 @@ onUnmounted(() => {
   .masonry-container {
     flex-direction: column;
   }
-  
+
   .masonry-column {
     width: 100% !important;
     margin-bottom: 16px;
