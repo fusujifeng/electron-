@@ -474,7 +474,48 @@ const playFirstVideo = async () => {
   }
 }
 
-// 播放所有文件夹中的第一个视频
+// 删除视频文件夹
+const deleteVideoFolder = async () => {
+  if (!selectedPreviewImage.value?.path) {
+    return
+  }
+
+  // 确认删除
+  const confirmed = confirm(`确定要删除文件夹 "${selectedPreviewImage.value.name}" 吗？\n\n注意：文件夹将被移动到回收站，可以从回收站恢复。`)
+  
+  if (!confirmed) {
+    return
+  }
+
+  try {
+    // 调用主进程删除文件夹
+    const result = await (window as any).api?.deleteFolder(selectedPreviewImage.value.path)
+
+    if (result?.success) {
+      // 删除成功，关闭预览面板
+      closePreviewPanel()
+      
+      // 刷新当前目录
+      await refreshCurrentDirectory()
+      
+      console.log('文件夹删除成功')
+    } else {
+      console.error('删除文件夹失败:', result?.error)
+      alert('删除失败: ' + (result?.error || '未知错误'))
+    }
+  } catch (error) {
+    console.error('删除文件夹失败:', error)
+    alert('删除失败: ' + error)
+  }
+}
+
+// 刷新当前目录
+const refreshCurrentDirectory = async () => {
+  // 重新加载当前选中的文件夹
+  if (selectedFolders.value.length > 0) {
+    await loadVideos()
+  }
+}
 
 // 窗口大小变化处理
 const handleResize = () => {
@@ -1245,6 +1286,27 @@ onUnmounted(() => {
                   <path d="M8 5v14l11-7z"></path>
                 </svg>
                 <span>播放视频</span>
+              </button>
+
+              <!-- 删除视频按钮 -->
+              <button
+                @click="deleteVideoFolder"
+                class="group relative w-full px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all duration-200 font-semibold text-sm flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+              >
+                <svg
+                  class="w-4 h-4 transition-transform group-hover:scale-110"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  ></path>
+                </svg>
+                <span>删除视频</span>
               </button>
             </div>
           </div>

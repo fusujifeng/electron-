@@ -5,6 +5,7 @@ import icon from '../../resources/electronImg.png?asset'
 import * as fs from 'fs'
 import * as path from 'path'
 import { autoUpdateManager } from './listenAutoUpdate'
+import { shell } from 'electron'
 
 // 支持的视频格式
 const VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ts']
@@ -370,7 +371,7 @@ app.whenReady().then(() => {
     }
   })
 
-  // 删除文件
+  // 删除文件（移到回收站）
   ipcMain.handle('delete-file', async (_event, filePath: string) => {
     try {
       // 检查文件是否存在
@@ -384,8 +385,8 @@ app.whenReady().then(() => {
         return { success: false, error: '目标不是文件' }
       }
 
-      // 删除文件
-      await fs.promises.unlink(filePath)
+      // 移动文件到回收站
+      await shell.trashItem(filePath)
 
       // 验证文件是否已删除
       const fileStillExists = fs.existsSync(filePath)
@@ -396,6 +397,40 @@ app.whenReady().then(() => {
       return { success: true }
     } catch (error) {
       console.error('删除文件时发生异常:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      return { success: false, error: `删除失败: ${errorMessage}` }
+    }
+  })
+
+  // 删除文件夹（移到回收站）
+  ipcMain.handle('delete-folder', async (_event, folderPath: string) => {
+    try {
+      console.log('准备删除文件夹:', folderPath)
+
+      // 检查路径是否存在
+      if (!fs.existsSync(folderPath)) {
+        return { success: false, error: '文件夹不存在' }
+      }
+
+      // 检查是否为文件夹（而不是文件）
+      const stats = await fs.promises.stat(folderPath)
+      if (!stats.isDirectory()) {
+        return { success: false, error: '目标不是文件夹' }
+      }
+
+      // 移动文件夹到回收站
+      await shell.trashItem(folderPath)
+
+      // 验证文件夹是否已删除
+      const folderStillExists = fs.existsSync(folderPath)
+      if (folderStillExists) {
+        return { success: false, error: '文件夹删除失败，文件夹仍然存在' }
+      }
+
+      console.log('文件夹删除成功:', folderPath)
+      return { success: true }
+    } catch (error) {
+      console.error('删除文件夹时发生异常:', error)
       const errorMessage = error instanceof Error ? error.message : '未知错误'
       return { success: false, error: `删除失败: ${errorMessage}` }
     }
