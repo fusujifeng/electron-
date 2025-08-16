@@ -9,7 +9,10 @@ const api = {
   saveClipboardImage: (folderPath: string) => ipcRenderer.invoke('save-clipboard-image', folderPath),
   setAsCover: (imagePath: string) => ipcRenderer.invoke('set-as-cover', imagePath),
   deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
-  openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath)
+  openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath),
+  checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+  confirmUpdate: () => ipcRenderer.send('confirm-update'),
+  installUpdate: () => ipcRenderer.send('install-update')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

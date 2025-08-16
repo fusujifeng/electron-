@@ -5,7 +5,8 @@ import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
 import FolderSelector from './components/FolderSelector.vue'
 import TagManager from './components/TagManager.vue'
-import { ipcRenderer } from 'electron'
+// 通过预加载脚本访问 electron API
+// import { ipcRenderer } from 'electron' // 移除直接导入
 import SettingsPanel from './components/SettingsPanel.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
@@ -719,13 +720,14 @@ onMounted(async () => {
   }
 
   // 监听主进程的更新事件
-  ipcRenderer.on('update-start', () => {
-    showUpdateProgress.value = true
-  })
+  // 注意：需要在预加载脚本中暴露这些事件监听器
+  // ipcRenderer.on('update-start', () => {
+  //   showUpdateProgress.value = true
+  // })
 
-  ipcRenderer.on('update-progress', (event, data) => {
-    progress.value.percent = Math.round(data.percent)
-  })
+  // ipcRenderer.on('update-progress', (_, data) => {
+  //   progress.value.percent = Math.round(data.percent)
+  // })
 })
 
 // 组件卸载时清理
@@ -822,7 +824,7 @@ onUnmounted(() => {
               <h1
                 class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-red-500 bg-clip-text text-transparent"
               >
-                视频小记
+                澪妹管理大师
               </h1>
               <p class="text-xs text-gray-500 font-medium">发现美好视频</p>
             </div>
@@ -1315,7 +1317,7 @@ onUnmounted(() => {
 
 <!--    更新-->
     <div v-if="showUpdateProgress" class="update-progress">
-      <p>正在更新：{{ progress.percent | formatPercent }}%</p>
+      <p>正在更新：{{ formatPercent(progress.percent) }}%</p>
       <progress :value="progress.percent" max="100"></progress>
     </div>
   </div>

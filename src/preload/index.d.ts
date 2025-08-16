@@ -8,6 +8,9 @@ interface CustomAPI {
   setAsCover: (imagePath: string) => Promise<{success: boolean, message?: string, error?: string}>
   deleteFile: (filePath: string) => Promise<{success: boolean, error?: string}>
   openInExplorer: (folderPath: string) => Promise<{success: boolean, error?: string}>
+  checkForUpdates: () => void
+  confirmUpdate: () => void
+  installUpdate: () => void
 }
 
 declare global {

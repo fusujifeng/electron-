@@ -1,10 +1,10 @@
 import { app, shell, BrowserWindow, ipcMain, protocol, clipboard, dialog } from 'electron'
-import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/electronImg.png?asset'
 import * as fs from 'fs'
 import * as path from 'path'
+import { autoUpdateManager } from './listenAutoUpdate'
 
 // 支持的视频格式
 const VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ts']
@@ -12,7 +12,7 @@ const VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm
 // 支持的图片格式
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1600,
@@ -47,83 +47,16 @@ function createWindow(): void {
 
   // 检查更新（生产环境才启用）
   if (app.isPackaged) {
-    checkForUpdates(mainWindow)
+    // 初始化自动更新管理器
+    autoUpdateManager.initialize(mainWindow)
+    // 启动时静默检查更新
+    autoUpdateManager.checkForUpdates(true)
   }
 
-
+  return mainWindow
 }
 
-// 配置自动更新日志（可选，用于调试）
-autoUpdater.logger = console
-autoUpdater.logger.transports.file.level = 'info'
 
-
-
-// 检查更新的核心函数
-function checkForUpdates(mainWindow) {
-  // 设置更新服务器地址（根据实际发布地址修改）
-  // 示例：GitHub Releases 地址（需替换为你的仓库）
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: '你的GitHub用户名',
-    repo: '你的仓库名',
-    releaseType: 'release'
-  })
-
-  // 1. 检查更新
-  autoUpdater.checkForUpdates()
-
-  // 2. 发现可用更新
-  autoUpdater.on('update-available', (info) => {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '发现更新',
-      message: `即将更新到版本 ${info.version}，是否开始下载？`,
-      buttons: ['开始下载', '稍后']
-    }).then(({ response }) => {
-      if (response === 0) {
-        // 用户同意，开始下载
-        mainWindow.webContents.send('update-start')  // 通知渲染进程
-      }
-    })
-  })
-
-  // 3. 下载进度
-  autoUpdater.on('download-progress', (progressObj) => {
-    mainWindow.webContents.send('update-progress', progressObj)  // 发送进度给渲染进程
-  })
-
-  // 4. 更新下载完成
-  autoUpdater.on('update-downloaded', (info) => {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '更新完成',
-      message: `版本 ${info.version} 已下载完成，是否立即重启应用？`,
-      buttons: ['立即重启', '稍后']
-    }).then(({ response }) => {
-      if (response === 0) {
-        autoUpdater.quitAndInstall()  // 重启并安装更新
-      }
-    })
-  })
-
-  // 5. 无可用更新
-  autoUpdater.on('update-not-available', () => {
-    dialog.showMessageBox(mainWindow, {
-      title: '已是最新版本',
-      message: '当前应用为最新版本，无需更新'
-    })
-  })
-
-  // 6. 更新错误
-  autoUpdater.on('error', (err) => {
-    dialog.showMessageBox(mainWindow, {
-      type: 'error',
-      title: '更新失败',
-      message: `更新出错：${err.message}`
-    })
-  })
-}
 // 注册自定义协议为标准协议
 protocol.registerSchemesAsPrivileged([
   {
@@ -551,6 +484,79 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  // IPC 处理手动检查更新
+  ipcMain.on('check-for-updates', () => {
+    if (app.isPackaged) {
+      autoUpdateManager.manualCheckForUpdates()
+    } else {
+      // 开发环境下模拟更新检查
+      console.log('Development mode: simulating update check')
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        // 模拟检查更新过程，随机返回"已是最新"或"有新版本"
+        setTimeout(() => {
+          const hasUpdate = Math.random() > 0.5
+          if (hasUpdate) {
+            // 模拟发现新版本
+            mainWindow.webContents.send('update-available', {
+              version: '1.2.0',
+              releaseNotes: '这是一个模拟的新版本更新说明，包含了一些新功能和bug修复。'
+            })
+          } else {
+            // 模拟已是最新版本
+            mainWindow.webContents.send('update-not-available')
+          }
+        }, 2000) // 模拟2秒的检查时间
+      }
+    }
+  })
+
+  // IPC 处理用户确认更新
+  ipcMain.on('confirm-update', () => {
+    if (app.isPackaged) {
+      // 开始下载更新
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        mainWindow.webContents.send('update-start')
+        console.log('User confirmed update, starting download')
+      }
+    } else {
+      // 开发环境下模拟更新下载
+      console.log('Development mode: simulating update download')
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        mainWindow.webContents.send('update-start')
+        // 模拟下载过程
+        let progress = 0
+        const progressInterval = setInterval(() => {
+          progress += 10
+          mainWindow.webContents.send('download-progress', { percent: progress })
+          if (progress >= 100) {
+            clearInterval(progressInterval)
+            setTimeout(() => {
+              mainWindow.webContents.send('update-downloaded')
+            }, 500)
+          }
+        }, 300) // 每300ms增加10%进度
+      }
+    }
+  })
+
+  // IPC 处理安装更新
+  ipcMain.on('install-update', () => {
+    if (app.isPackaged) {
+      autoUpdateManager.installUpdate()
+    } else {
+      console.log('Development mode: simulating app restart for update installation')
+      // 在开发环境下可以选择重启应用或显示消息
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        // 这里可以添加重启逻辑或显示消息
+        console.log('Update installation simulated in development mode')
+      }
+    }
+  })
 
   createWindow()
 
