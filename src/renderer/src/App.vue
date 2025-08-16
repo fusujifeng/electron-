@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import VideoGrid from './components/VideoGrid.vue'
 import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
 import FolderSelector from './components/FolderSelector.vue'
 import TagManager from './components/TagManager.vue'
-
+import { ipcRenderer } from 'electron'
 import SettingsPanel from './components/SettingsPanel.vue'
 import { useVideoStore } from './stores/videoStore'
 import type { Video } from './stores/videoStore'
@@ -50,8 +50,12 @@ const sortOptions = [
   { value: 'time-asc', label: '按时间排序（旧到新）', icon: '🕐' }
 ]
 
-// 导航历史记录（存储文件夹数组的历史状态）
-const navigationHistory = ref<string[][]>([])
+// 导航历史记录（存储文件夹数组和滚动位置的历史状态）
+interface NavigationState {
+  folders: string[]
+  scrollPosition: number
+}
+const navigationHistory = ref<NavigationState[]>([])
 const currentFolderName = computed(() => {
   if (selectedFolders.value.length === 0) return ''
   if (selectedFolders.value.length === 1) {
@@ -296,14 +300,14 @@ const handleFolderSelect = async (folderPath: string) => {
   // 获取当前滚动容器的滚动位置
   const scrollContainer = document.querySelector('.video-grid-container') as HTMLElement;
   const scrollPosition = scrollContainer?.scrollTop || 0;
-  
+
   if (selectedFolders.value.length > 0 && !selectedFolders.value.includes(folderPath)) {
     navigationHistory.value.push({
       folders: [...selectedFolders.value],
       scrollPosition
     });
   }
-  
+
   selectedFolders.value = [folderPath];
   videoStore.updateSettings({ lastSelectedFolder: folderPath });
   await loadVideos();
@@ -330,18 +334,17 @@ const goBack = async () => {
       selectedFolders.value = [...previousState.folders];
       videoStore.updateSettings({ lastSelectedFolder: previousState.folders[0] });
       await loadVideos();
-      
+
       // 确保DOM更新完成后再恢复滚动位置
-      nextTick(() => {
-        const scrollContainer = document.querySelector('.video-grid-container') as HTMLElement;
-        if (scrollContainer && previousState.scrollPosition) {
-          scrollContainer.scrollTop = previousState.scrollPosition;
-          scrollContainer.style.scrollBehavior = 'smooth';
-          setTimeout(() => {
-            scrollContainer.style.scrollBehavior = 'auto';
-          }, 500);
-        }
-      });
+      await nextTick()
+      const scrollContainer = document.querySelector('.video-grid-container') as HTMLElement;
+      if (scrollContainer && previousState.scrollPosition) {
+        scrollContainer.scrollTop = previousState.scrollPosition;
+        scrollContainer.style.scrollBehavior = 'smooth';
+        setTimeout(() => {
+          scrollContainer.style.scrollBehavior = 'auto';
+        }, 500);
+      }
     }
   }
 };
@@ -697,6 +700,13 @@ const closeSettings = () => {
   showSettingsPanel.value = false
 }
 
+//自动更新
+const showUpdateProgress = ref(false)
+const progress = ref({ percent: 0 })
+// 格式化百分比过滤器
+const formatPercent = (value) => {
+  return value.toFixed(0)
+}
 // 组件挂载时初始化
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
@@ -707,6 +717,15 @@ onMounted(async () => {
     selectedFolders.value = [lastFolder]
     await loadVideos()
   }
+
+  // 监听主进程的更新事件
+  ipcRenderer.on('update-start', () => {
+    showUpdateProgress.value = true
+  })
+
+  ipcRenderer.on('update-progress', (event, data) => {
+    progress.value.percent = Math.round(data.percent)
+  })
 })
 
 // 组件卸载时清理
@@ -1292,5 +1311,26 @@ onUnmounted(() => {
 
     <!-- 设置面板 -->
     <SettingsPanel v-if="showSettingsPanel" @close="closeSettings" />
+
+
+<!--    更新-->
+    <div v-if="showUpdateProgress" class="update-progress">
+      <p>正在更新：{{ progress.percent | formatPercent }}%</p>
+      <progress :value="progress.percent" max="100"></progress>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.update-progress {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  text-align: center;
+}
+</style>

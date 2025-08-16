@@ -1,4 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, protocol, clipboard, dialog } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/electronImg.png?asset'
@@ -14,8 +15,9 @@ const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.sv
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 1600,
+    height: 900,
+    fullscreen: false,
     show: false,
     icon:icon,
     autoHideMenuBar: true,
@@ -42,8 +44,86 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // 检查更新（生产环境才启用）
+  if (app.isPackaged) {
+    checkForUpdates(mainWindow)
+  }
+
+
 }
 
+// 配置自动更新日志（可选，用于调试）
+autoUpdater.logger = console
+autoUpdater.logger.transports.file.level = 'info'
+
+
+
+// 检查更新的核心函数
+function checkForUpdates(mainWindow) {
+  // 设置更新服务器地址（根据实际发布地址修改）
+  // 示例：GitHub Releases 地址（需替换为你的仓库）
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: '你的GitHub用户名',
+    repo: '你的仓库名',
+    releaseType: 'release'
+  })
+
+  // 1. 检查更新
+  autoUpdater.checkForUpdates()
+
+  // 2. 发现可用更新
+  autoUpdater.on('update-available', (info) => {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '发现更新',
+      message: `即将更新到版本 ${info.version}，是否开始下载？`,
+      buttons: ['开始下载', '稍后']
+    }).then(({ response }) => {
+      if (response === 0) {
+        // 用户同意，开始下载
+        mainWindow.webContents.send('update-start')  // 通知渲染进程
+      }
+    })
+  })
+
+  // 3. 下载进度
+  autoUpdater.on('download-progress', (progressObj) => {
+    mainWindow.webContents.send('update-progress', progressObj)  // 发送进度给渲染进程
+  })
+
+  // 4. 更新下载完成
+  autoUpdater.on('update-downloaded', (info) => {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '更新完成',
+      message: `版本 ${info.version} 已下载完成，是否立即重启应用？`,
+      buttons: ['立即重启', '稍后']
+    }).then(({ response }) => {
+      if (response === 0) {
+        autoUpdater.quitAndInstall()  // 重启并安装更新
+      }
+    })
+  })
+
+  // 5. 无可用更新
+  autoUpdater.on('update-not-available', () => {
+    dialog.showMessageBox(mainWindow, {
+      title: '已是最新版本',
+      message: '当前应用为最新版本，无需更新'
+    })
+  })
+
+  // 6. 更新错误
+  autoUpdater.on('error', (err) => {
+    dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: '更新失败',
+      message: `更新出错：${err.message}`
+    })
+  })
+}
 // 注册自定义协议为标准协议
 protocol.registerSchemesAsPrivileged([
   {
