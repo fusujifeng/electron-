@@ -128,7 +128,7 @@
               <h4 class="text-xl font-bold text-gray-800 mb-2">澪妹管理大师</h4>
               <p class="text-gray-600 mb-4">发现美好视频</p>
               <div class="text-sm text-gray-500 space-y-1 mb-6">
-                <p>版本: 1.1.4</p>
+                <p>版本: {{ appVersion }}</p>
                 <p>基于 Electron + Vue 3 + TypeScript</p>
                 <p>© 2025 澪妹管理大师. All rights reserved.</p>
               </div>
@@ -262,11 +262,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import DataManagementPanel from './DataManagementPanel.vue'
+import packageInfo from '../../../../package.json'
 
 // 定义事件
 const emit = defineEmits<{
   close: []
 }>()
+
+// 应用版本号
+const appVersion = ref(packageInfo.version)
 
 // 当前激活的模块
 const activeModule = ref('general')
