@@ -1,8 +1,8 @@
 <template>
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeSettings">
-    <div class="bg-white rounded-2xl shadow-2xl w-[90vw] h-[85vh] max-w-6xl max-h-[800px] flex overflow-hidden" @click.stop>
+    <div class="bg-white/92 backdrop-blur-2xl rounded-[8px] shadow-2xl w-[90vw] h-[85vh] max-w-6xl max-h-[800px] flex overflow-hidden border border-white/70" @click.stop>
       <!-- 左侧模块列表 -->
-      <div class="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
+      <div class="w-64 bg-[#f5f5f7] border-r border-gray-200 flex flex-col">
         <!-- 设置标题 -->
         <div class="p-6 border-b border-gray-200">
           <h2 class="text-xl font-bold text-gray-800 flex items-center space-x-2">
@@ -22,7 +22,7 @@
             @click="activeModule = module.id"
             class="w-full text-left px-4 py-3 rounded-xl transition-all duration-200 flex items-center space-x-3"
             :class="{
-              'bg-blue-100 text-blue-700 border border-blue-200': activeModule === module.id,
+                'bg-white text-[#0071e3] border border-[#0071e3]/20 shadow-sm': activeModule === module.id,
               'text-gray-600 hover:bg-gray-100 hover:text-gray-800': activeModule !== module.id
             }"
           >
@@ -119,8 +119,8 @@
           <div v-if="activeModule === 'about'" class="space-y-6">
             <div class="bg-gray-50 rounded-xl p-6 text-center">
               <div class="flex justify-center mb-4">
-                <div class="p-4 bg-gradient-to-br from-pink-400 to-red-400 rounded-2xl shadow-lg">
-                  <svg class="h-12 w-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="p-4 bg-white rounded-[8px] shadow-sm border border-black/[0.08]">
+                  <svg class="h-12 w-12 text-[#0071e3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                   </svg>
                 </div>

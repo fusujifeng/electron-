@@ -85,7 +85,7 @@ const openInExplorer = (path: string) => {
          <div
            v-for="folder in selectedFolders"
            :key="folder"
-           class="group relative inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-md cursor-pointer max-w-xs"
+           class="group relative inline-flex items-center px-3 py-2 bg-white/72 hover:bg-white border border-black/[0.08] hover:border-[#0071e3]/30 rounded-[8px] transition-all duration-200 hover:shadow-md cursor-pointer max-w-xs"
            :title="folder"
            @click="copyPath(folder)"
          >
@@ -95,14 +95,14 @@ const openInExplorer = (path: string) => {
            </svg>
            
            <!-- 文件夹名称 -->
-           <span class="text-sm font-medium text-blue-700 truncate max-w-[120px]">
+           <span class="text-sm font-medium text-[#1d1d1f] truncate max-w-[120px]">
              {{ getFolderName(folder) }}
            </span>
            
            <!-- 删除按钮 - 鼠标悬停时显示 -->
            <button
              @click.stop="removeFolder(folder)"
-             class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center shadow-lg hover:scale-110"
+             class="absolute -top-1 -right-1 w-5 h-5 bg-[#ff3b30] hover:bg-[#e7342a] text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center shadow-lg hover:scale-110"
              title="移除此文件夹"
            >
              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +113,7 @@ const openInExplorer = (path: string) => {
            <!-- 在文件管理器中打开按钮 - 右键或双击 -->
            <button
              @click.stop="openInExplorer(folder)"
-             class="ml-2 p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
+             class="ml-2 p-1 text-gray-400 hover:text-[#0071e3] hover:bg-[#0071e3]/10 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
              title="在文件管理器中打开"
            >
              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +126,7 @@ const openInExplorer = (path: string) => {
        <!-- 右侧：操作按钮 -->
        <div class="flex items-center space-x-2 flex-shrink-0">
          <!-- 文件夹数量显示 -->
-         <div class="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+         <div class="flex items-center space-x-2 px-3 py-2 bg-[#f5f5f7] rounded-[8px] border border-black/[0.06]">
            <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
            </svg>
@@ -144,7 +144,7 @@ const openInExplorer = (path: string) => {
          <button
            @click="selectFolders"
            :disabled="isLoading"
-           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-pink-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg"
+           class="inline-flex items-center px-4 py-2 border border-[#0071e3] text-sm font-medium rounded-[8px] text-white bg-[#0071e3] hover:bg-[#0077ed] focus:outline-none focus:ring-4 focus:ring-[#0071e3]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
          >
            <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -157,7 +157,7 @@ const openInExplorer = (path: string) => {
      <!-- 当没有选择文件夹时的初始状态 -->
      <div v-else class="flex items-center justify-center py-8">
        <div class="text-center">
-         <div class="flex-shrink-0 p-3 bg-gray-100 rounded-xl mx-auto w-fit mb-3">
+         <div class="flex-shrink-0 p-3 bg-[#f5f5f7] rounded-[8px] mx-auto w-fit mb-3 border border-black/[0.06]">
            <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
            </svg>
@@ -167,7 +167,7 @@ const openInExplorer = (path: string) => {
          <button
            @click="selectFolders"
            :disabled="isLoading"
-           class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-full text-white bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 focus:outline-none focus:ring-4 focus:ring-pink-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+           class="inline-flex items-center px-6 py-3 border border-[#0071e3] text-sm font-semibold rounded-[8px] text-white bg-[#0071e3] hover:bg-[#0077ed] focus:outline-none focus:ring-4 focus:ring-[#0071e3]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
          >
            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -179,29 +179,29 @@ const openInExplorer = (path: string) => {
   </div>
 
   <!-- 提示信息 -->
-  <div v-if="selectedCount === 0" class="mt-4 p-6 bg-gradient-to-br from-pink-50 to-red-50 border-2 border-pink-100 rounded-2xl backdrop-blur-sm">
+  <div v-if="selectedCount === 0" class="mt-4 p-6 bg-white/62 border border-black/[0.08] rounded-[8px] backdrop-blur-xl">
     <div class="flex items-start space-x-4">
-      <div class="p-2 bg-pink-100 rounded-xl">
-        <svg class="h-6 w-6 text-pink-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="p-2 bg-[#0071e3]/10 rounded-[8px]">
+        <svg class="h-6 w-6 text-[#0071e3] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
       </div>
       <div class="text-sm">
-        <p class="font-bold text-pink-700 mb-2 text-base">开始你的视频之旅 ✨</p>
-        <p class="text-pink-600 mb-3 leading-relaxed">
+        <p class="font-semibold text-[#1d1d1f] mb-2 text-base">开始整理你的电影库</p>
+        <p class="text-gray-600 mb-3 leading-relaxed">
           选择一个或多个包含视频文件的文件夹，我们将为你精心整理和展示所有美好的视频内容。
         </p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-          <div class="flex items-center space-x-2 text-xs text-pink-600 bg-white/60 px-3 py-2 rounded-xl">
-            <span class="text-pink-500">🎬</span>
+          <div class="flex items-center space-x-2 text-xs text-gray-600 bg-white/72 px-3 py-2 rounded-[8px] border border-black/[0.06]">
+            <span class="text-[#0071e3]">🎬</span>
             <span>支持多种格式</span>
           </div>
-          <div class="flex items-center space-x-2 text-xs text-pink-600 bg-white/60 px-3 py-2 rounded-xl">
-            <span class="text-pink-500">📁</span>
+          <div class="flex items-center space-x-2 text-xs text-gray-600 bg-white/72 px-3 py-2 rounded-[8px] border border-black/[0.06]">
+            <span class="text-[#0071e3]">📁</span>
             <span>多文件夹同时管理</span>
           </div>
-          <div class="flex items-center space-x-2 text-xs text-pink-600 bg-white/60 px-3 py-2 rounded-xl">
-            <span class="text-pink-500">🔍</span>
+          <div class="flex items-center space-x-2 text-xs text-gray-600 bg-white/72 px-3 py-2 rounded-[8px] border border-black/[0.06]">
+            <span class="text-[#0071e3]">🔍</span>
             <span>深度文件夹扫描</span>
           </div>
         </div>

@@ -27,14 +27,16 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const videoStore = useVideoStore()
 
-// 瀑布流相关
+// 布局相关
 const containerRef = ref<HTMLElement>()
-const columns = ref(4) // 默认4列
-const visibleVideos = ref<Video[]>()
+const visibleVideos = ref<Video[]>([])
 const loadedCount = ref(20) // 初始加载20个
 const isLoadingMore = ref(false)
-const columnHeights = ref<number[]>([]) // 每列的高度
-const videoColumns = ref<Video[][]>([]) // 分列的视频数组
+const coverRatios = ref<Record<string, number>>({})
+const containerWidth = ref(0)
+let resizeObserver: ResizeObserver | undefined
+
+const canUseLandscapeSpans = computed(() => containerWidth.value >= 540)
 
 // 过滤后的视频列表
 const filteredVideos = computed(() => {
@@ -106,34 +108,6 @@ const filteredVideos = computed(() => {
   return result
 })
 
-// 瀑布流列宽计算
-const columnWidth = computed(() => {
-  if (!containerRef.value) return '25%'
-  const gap = 16 // gap-4 = 16px
-  const totalGap = (columns.value - 1) * gap
-  const availableWidth = containerRef.value.clientWidth - totalGap
-  return `${availableWidth / columns.value}px`
-})
-
-// 响应式列数调整
-const updateColumns = () => {
-  if (!containerRef.value) return
-
-  const width = containerRef.value?.offsetWidth || 0
-
-  if (width >= 1400) {
-    columns.value = 6
-  } else if (width >= 1200) {
-    columns.value = 5
-  } else if (width >= 900) {
-    columns.value = 4
-  } else if (width >= 600) {
-    columns.value = 3
-  } else {
-    columns.value = 2
-  }
-}
-
 // 加载更多视频
 const loadMore = () => {
   if (isLoadingMore.value) return
@@ -169,30 +143,23 @@ const handleFolderPreview = (video: Video) => {
   emit('folder-preview', video)
 }
 
-// 更新可见视频列表和瀑布流布局
-const updateVisibleVideos = () => {
-  visibleVideos.value = filteredVideos.value.slice(0, loadedCount.value)
-  updateMasonryLayout()
+const handleCoverRatio = ({ id, ratio }: { id: string; ratio: number }) => {
+  coverRatios.value = {
+    ...coverRatios.value,
+    [id]: ratio
+  }
 }
 
-// 更新瀑布流布局
-const updateMasonryLayout = () => {
-  // 初始化列数组和高度数组
-  columnHeights.value = new Array(columns.value).fill(0)
-  videoColumns.value = new Array(columns.value).fill(null).map(() => [])
+const getCardSpanClass = (video: Video) => {
+  const ratio = coverRatios.value[video.id]
 
-  // 将视频分配到各列
-  visibleVideos.value?.forEach((video) => {
-    // 找到高度最小的列
-    const minHeightIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value))
+  if (canUseLandscapeSpans.value && ratio >= 1.24) return 'movie-grid-item-landscape'
+  return 'movie-grid-item-standard'
+}
 
-    // 将视频添加到该列
-    videoColumns.value[minHeightIndex].push(video)
-
-    // 估算视频卡片高度（这里使用一个基础高度加上随机值来模拟不同高度）
-    const estimatedHeight = video.isFolder ? 200 : (video.category === 'image' ? 250 : 300)
-    columnHeights.value[minHeightIndex] += estimatedHeight + 16 // 16px gap
-  })
+// 更新可见视频列表
+const updateVisibleVideos = () => {
+  visibleVideos.value = filteredVideos.value.slice(0, loadedCount.value)
 }
 
 // 无限滚动检测
@@ -217,52 +184,56 @@ watch([() => props.videos, () => props.searchQuery, () => props.selectedCategory
   updateVisibleVideos()
 }, { deep: true })
 
-// 监听列数变化，重新布局
-watch(columns, () => {
-  updateMasonryLayout()
-})
-
 onMounted(() => {
-  updateColumns()
   updateVisibleVideos()
-  window.addEventListener('resize', () => {
-    updateColumns()
-    updateMasonryLayout()
-  })
+  if (containerRef.value) {
+    containerWidth.value = containerRef.value.clientWidth
+    resizeObserver = new ResizeObserver(([entry]) => {
+      containerWidth.value = entry.contentRect.width
+    })
+    resizeObserver.observe(containerRef.value)
+  }
   window.addEventListener('scroll', handleScroll)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', updateColumns)
+  resizeObserver?.disconnect()
   window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
 <template>
   <div class="video-grid-container" ref="containerRef">
-    <!-- 空状态 -->
-    <div v-if="filteredVideos.length === 0" class="text-center py-20">
-      <div class="text-gray-400 text-6xl mb-4">🎬</div>
-      <h3 class="text-lg font-medium text-gray-900 mb-2">没有找到视频</h3>
-      <p class="text-gray-500">
+    <div
+      v-if="filteredVideos.length === 0"
+      class="flex min-h-[360px] items-center justify-center rounded-[20px] border border-dashed border-black/[0.12] bg-white/42 px-6 py-16 text-center backdrop-blur-xl"
+    >
+      <div>
+        <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-white text-[#0071e3] shadow-sm">
+          <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+            ></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold tracking-tight text-[#1d1d1f]">没有找到内容</h3>
+        <p class="mt-2 text-sm text-gray-500">
         <span v-if="props.searchQuery">尝试调整搜索关键词</span>
         <span v-else-if="props.selectedCategory !== 'all'">尝试选择其他分类</span>
         <span v-else>选择的文件夹中没有视频文件</span>
       </p>
+      </div>
     </div>
 
-    <!-- 瀑布流布局 -->
-    <div v-else class="masonry-container" :style="{ gap: '16px' }">
-      <div
-        v-for="(columnVideos, columnIndex) in videoColumns"
-        :key="columnIndex"
-        class="masonry-column"
-        :style="{ width: columnWidth }"
-      >
+    <div v-else class="masonry-container">
         <div
-          v-for="video in columnVideos"
+          v-for="video in visibleVideos"
           :key="video.id"
-          class="video-item mb-4"
+          class="video-item"
+          :class="getCardSpanClass(video)"
         >
           <!-- 根据文件类型使用不同的组件 -->
           <VideoCard
@@ -273,6 +244,7 @@ onUnmounted(() => {
             @favorite="handleVideoFavorite"
             @folder-select="handleFolderSelect"
             @folder-preview="handleFolderPreview"
+            @cover-ratio="handleCoverRatio"
           />
           <ImgCard
             v-else
@@ -280,27 +252,26 @@ onUnmounted(() => {
             @update="handleVideoUpdate"
             @view="handleVideoPlay"
             @favorite="handleVideoFavorite"
+            @cover-ratio="handleCoverRatio"
           />
         </div>
-      </div>
 
       <!-- 加载更多指示器 -->
       <div
         v-if="isLoadingMore"
-        class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full shadow-lg px-4 py-2 flex items-center space-x-2"
+        class="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/70 bg-white/82 px-4 py-2 shadow-[0_18px_48px_rgba(0,0,0,0.16)] backdrop-blur-2xl"
       >
-        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        <div class="h-4 w-4 animate-spin rounded-full border-2 border-[#0071e3]/20 border-b-[#0071e3]"></div>
         <span class="text-sm text-gray-600">加载更多...</span>
       </div>
 
-      <!-- 到底了提示 -->
-      <div
-        v-if="loadedCount >= filteredVideos.length && filteredVideos.length > 0"
-        class="text-center py-8 text-gray-500"
-      >
-        <div class="text-2xl mb-2">🎯</div>
-        <p>已显示全部 {{ filteredVideos.length }} 个视频</p>
-      </div>
+    </div>
+
+    <div
+      v-if="loadedCount >= filteredVideos.length && filteredVideos.length > 0"
+      class="w-full py-7 text-center text-sm text-gray-400"
+    >
+      已显示全部 {{ filteredVideos.length }} 个项目
     </div>
   </div>
 </template>
@@ -311,37 +282,53 @@ onUnmounted(() => {
 }
 
 .masonry-container {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 260px);
+  grid-auto-columns: 260px;
+  grid-auto-flow: row;
+  gap: 20px;
+  align-items: start;
+  justify-content: start;
   width: 100%;
 }
 
-.masonry-column {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+.movie-grid-item-standard {
+  grid-column: span 1;
+}
+
+.movie-grid-item-landscape {
+  grid-column: span 2;
 }
 
 .video-item {
-  transition: all 0.3s ease;
+  transition:
+    transform 180ms ease,
+    filter 180ms ease;
   break-inside: avoid;
   width: 100%;
+  min-width: 0;
 }
 
 .video-item:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
-/* 响应式调整 */
-@media (max-width: 640px) {
+@media (max-width: 1240px) {
   .masonry-container {
-    flex-direction: column;
+    grid-template-columns: repeat(auto-fill, 240px);
+    grid-auto-columns: 240px;
+  }
+}
+
+@media (max-width: 760px) {
+  .masonry-container {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: minmax(0, 1fr);
   }
 
-  .masonry-column {
-    width: 100% !important;
-    margin-bottom: 16px;
+  .movie-grid-item-standard,
+  .movie-grid-item-landscape {
+    grid-column: 1 / -1;
   }
 }
 </style>

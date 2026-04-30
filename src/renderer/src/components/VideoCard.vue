@@ -13,6 +13,7 @@ interface Emits {
   (e: 'favorite', video: Video): void
   (e: 'folder-select', path: string): void
   (e: 'folder-preview', video: Video): void
+  (e: 'cover-ratio', payload: { id: string; ratio: number }): void
 }
 
 const props = defineProps<Props>()
@@ -23,6 +24,22 @@ const isHovered = ref(false)
 const imageLoaded = ref(false)
 const imageError = ref(false)
 const showImageUpload = ref(false)
+const coverAspectRatio = ref('4 / 5')
+
+const getBalancedAspectRatio = (naturalWidth: number, naturalHeight: number) => {
+  if (!naturalWidth || !naturalHeight) return '4 / 5'
+
+  const rawRatio = naturalWidth / naturalHeight
+  // Keep real image proportions, but prevent very wide screenshots from becoming tiny strips.
+  const balancedRatio = Math.min(Math.max(rawRatio, 0.68), 1.42)
+
+  return `${balancedRatio.toFixed(3)} / 1`
+}
+
+const coverFrameStyle = computed(() => ({
+  aspectRatio: props.video.thumbnail ? coverAspectRatio.value : '4 / 5',
+  minHeight: props.video.thumbnail ? '230px' : '220px'
+}))
 
 
 
@@ -43,6 +60,7 @@ watch(
   () => {
     imageError.value = false
     imageLoaded.value = false
+    coverAspectRatio.value = '4 / 5'
   },
   { immediate: true }
 )
@@ -187,6 +205,16 @@ const handleUploadError = () => {
   // TODO: 显示错误提示给用户
 }
 
+const handleThumbnailLoad = (event: Event) => {
+  const image = event.target as HTMLImageElement
+  imageLoaded.value = true
+  coverAspectRatio.value = getBalancedAspectRatio(image.naturalWidth, image.naturalHeight)
+  emit('cover-ratio', {
+    id: props.video.id,
+    ratio: image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 1
+  })
+}
+
 // 显示/隐藏图片上传
 const toggleImageUpload = () => {
   showImageUpload.value = !showImageUpload.value
@@ -230,14 +258,14 @@ const getImageSrc = (video: Video) => {
 <template>
   <div
     data-video-card
-    class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group cursor-pointer border border-pink-50 hover:border-pink-100 hover:-translate-y-2"
+    class="bg-white/82 backdrop-blur-xl rounded-[8px] shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer border border-black/[0.08] hover:border-[#0071e3]/25 hover:-translate-y-1"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
     @click="handleClick"
     @dblclick="handleDoubleClick"
   >
     <!-- 缩略图容器 -->
-    <div class="relative bg-gradient-to-br from-pink-50 to-red-50 overflow-hidden rounded-t-2xl" :style="video.thumbnail ? 'min-height: 200px; max-height: 400px;' : 'aspect-ratio: 16/9;'">
+    <div class="relative bg-[#f5f5f7] overflow-hidden rounded-t-[8px]" :style="coverFrameStyle">
       <!-- 图片上传组件 -->
       <div v-if="showImageUpload" class="absolute inset-0 z-20 bg-white">
         <ImageUpload
@@ -262,23 +290,21 @@ const getImageSrc = (video: Video) => {
       <!-- 缩略图 -->
       <div
         v-if="video.thumbnail && !showImageUpload"
-        class="w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
-        :style="'min-height: 200px; max-height: 400px;'"
+        class="h-full w-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
       >
         <!-- 对于所有有缩略图的项目，使用img标签显示 -->
         <img
           :src="getImageSrc(video)"
           :alt="video.name"
-          class="w-full h-auto object-contain"
-           style="max-height: 100%; max-width: 100%;"
-          @load="imageLoaded = true"
+          class="h-full w-full object-cover"
+          @load="handleThumbnailLoad"
           @error="imageError = false"
         />
 
         <!-- 文件夹封面的遮罩层，用于更好的文字可读性 -->
         <div
           v-if="video.isFolder || video.category === 'image'"
-          class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/20 pointer-events-none"
+          class="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-slate-950/10 pointer-events-none"
         ></div>
       </div>
 
@@ -286,11 +312,11 @@ const getImageSrc = (video: Video) => {
       <div
         v-else-if="!showImageUpload"
         class="w-full h-full flex items-center justify-center"
-        :class="video.isFolder ? 'bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-gradient-to-br from-pink-50 to-red-50'"
+        :class="video.isFolder ? 'bg-[#eef5ff]' : 'bg-[#f5f5f7]'"
       >
 
         <div class="text-center">
-          <div class="p-4 bg-white/80 rounded-2xl backdrop-blur-sm shadow-lg">
+          <div class="p-4 bg-white/82 rounded-[8px] backdrop-blur-xl shadow-sm border border-black/[0.06]">
             <!-- 文件夹图标 -->
             <svg
               v-if="video.isFolder"
@@ -314,7 +340,7 @@ const getImageSrc = (video: Video) => {
             <!-- 视频图标 -->
             <svg
               v-else
-              class="w-12 h-12 text-pink-400 mx-auto mb-3"
+              class="w-12 h-12 text-[#0071e3] mx-auto mb-3"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -324,7 +350,7 @@ const getImageSrc = (video: Video) => {
             <button
               v-if="!video.isFolder && video.category !== 'image'"
               @click="toggleImageUpload"
-              class="text-xs text-pink-500 hover:text-pink-600 font-medium transition-colors px-3 py-1 bg-pink-100 rounded-full hover:bg-pink-200"
+              class="text-xs text-[#0071e3] hover:text-[#005bb5] font-medium transition-colors px-3 py-1 bg-[#0071e3]/10 rounded-full hover:bg-[#0071e3]/15"
             >
               添加封面
             </button>
@@ -346,12 +372,11 @@ const getImageSrc = (video: Video) => {
 
       <!-- 播放按钮覆盖层 -->
       <div
-        class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center"
+        class="absolute inset-0 bg-gradient-to-t from-slate-950/18 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center"
         v-show="!showImageUpload"
       >
         <div
-          class="w-16 h-16 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-500 shadow-2xl"
-          :class="video.isFolder ? 'border-2 border-blue-200' : video.category === 'image' ? 'border-2 border-green-200' : 'border-2 border-pink-200'"
+          class="w-14 h-14 bg-white/92 backdrop-blur-xl rounded-full flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300 shadow-xl border border-white/70"
         >
           <!-- 文件夹图标 -->
           <svg
@@ -377,7 +402,7 @@ const getImageSrc = (video: Video) => {
           <!-- 播放图标 -->
           <svg
             v-else
-            class="w-7 h-7 text-pink-500 ml-1"
+            class="w-7 h-7 text-[#0071e3] ml-1"
             fill="currentColor"
             viewBox="0 0 24 24"
           >
@@ -393,7 +418,7 @@ const getImageSrc = (video: Video) => {
       >
         <button
           @click="toggleImageUpload"
-          class="p-1.5 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all"
+          class="p-1.5 bg-white/86 text-gray-700 rounded-full hover:bg-white transition-all shadow-sm border border-black/[0.08]"
           title="编辑预览图"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -405,7 +430,7 @@ const getImageSrc = (video: Video) => {
       <!-- 时长显示 -->
       <div
         v-if="video.duration && !video.isFolder && !showImageUpload"
-        class="absolute bottom-3 right-3 bg-black/80 backdrop-blur-sm text-white text-xs px-2 py-1 rounded font-medium shadow-lg"
+        class="absolute bottom-3 right-3 bg-slate-900/72 backdrop-blur-sm text-white text-xs px-2 py-1 rounded font-medium shadow-lg"
       >
         {{ formatDuration(video.duration) }}
       </div>
@@ -413,8 +438,8 @@ const getImageSrc = (video: Video) => {
       <!-- 分类标签 -->
       <div
         v-if="video.category && !showImageUpload"
-        class="absolute top-3 left-3 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-lg backdrop-blur-sm"
-        :class="video.isFolder ? 'bg-gradient-to-r from-blue-500/90 to-indigo-500/90' : video.category === 'image' ? 'bg-gradient-to-r from-green-500/90 to-emerald-500/90' : 'bg-gradient-to-r from-pink-500/90 to-red-500/90'"
+        class="absolute top-3 left-3 text-xs px-3 py-1.5 rounded-full font-semibold shadow-lg backdrop-blur-xl border border-white/60"
+        :class="video.isFolder ? 'bg-white/86 text-[#0071e3]' : video.category === 'image' ? 'bg-white/86 text-[#2f855a]' : 'bg-white/86 text-[#1d1d1f]'"
       >
         {{ video.isFolder ? '📁 文件夹' : video.category === 'image' ? '🖼️ 图片' : video.category }}
       </div>
@@ -424,7 +449,7 @@ const getImageSrc = (video: Video) => {
         v-if="video.isFavorite && !showImageUpload"
         class="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg"
       >
-        <svg class="h-4 w-4 text-pink-500 fill-current" viewBox="0 0 24 24">
+        <svg class="h-4 w-4 text-[#ff9f0a] fill-current" viewBox="0 0 24 24">
           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
         </svg>
       </div>
@@ -434,7 +459,7 @@ const getImageSrc = (video: Video) => {
     <div class="p-5">
       <!-- 标题 -->
       <h3
-        class="font-semibold text-gray-800 text-sm line-clamp-2 mb-3 group-hover:text-pink-600 transition-colors leading-relaxed"
+        class="font-semibold text-[#1d1d1f] text-sm line-clamp-2 mb-3 group-hover:text-[#0071e3] transition-colors leading-relaxed"
         :title="video.name || video.title"
       >
         {{ video.title || video.name }}
@@ -468,7 +493,7 @@ const getImageSrc = (video: Video) => {
         <!-- 视频文件显示 -->
         <template v-else>
           <span class="px-2 py-1 bg-gray-100 rounded-full font-medium">{{ formatFileSize(video.size) }}</span>
-          <span v-if="video.duration" class="px-2 py-1 bg-pink-100 text-pink-600 rounded-full font-medium">{{ formatDuration(video.duration) }}</span>
+          <span v-if="video.duration" class="px-2 py-1 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-medium">{{ formatDuration(video.duration) }}</span>
           <span class="flex items-center px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-medium">
             <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -484,13 +509,13 @@ const getImageSrc = (video: Video) => {
         <span
           v-for="tag in displayTags.slice(0, 6)"
           :key="tag"
-          class="inline-block bg-gradient-to-r from-pink-100 to-red-100 text-pink-700 text-xs px-3 py-1.5 rounded-full font-medium border border-pink-200"
+          class="inline-block bg-[#f5f5f7] text-gray-700 text-xs px-3 py-1.5 rounded-full font-medium border border-black/[0.06]"
         >
           # {{ tag }}
         </span>
         <span
           v-if="displayTags.length > 6"
-          class="inline-block text-pink-400 text-xs px-2 py-1 bg-pink-50 rounded-full font-medium"
+          class="inline-block text-gray-500 text-xs px-2 py-1 bg-[#f5f5f7] rounded-full font-medium"
         >
           +{{ displayTags.length - 6 }}
         </span>
@@ -503,7 +528,7 @@ const getImageSrc = (video: Video) => {
         <div class="flex space-x-3">
           <button
             @click.stop="showDetails"
-            class="p-2 text-gray-400 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all duration-300 hover:scale-110"
+            class="p-2 text-gray-400 hover:text-[#0071e3] hover:bg-[#0071e3]/10 rounded-[8px] transition-all duration-200 hover:scale-105"
             title="查看详情"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -514,7 +539,7 @@ const getImageSrc = (video: Video) => {
           <button
             @click.stop="toggleFavorite"
             class="p-2 transition-all duration-300 hover:scale-110 rounded-xl"
-            :class="video.isFavorite ? 'text-pink-500 hover:text-pink-600 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'"
+            :class="video.isFavorite ? 'text-[#ff9f0a] hover:text-[#bf7400] bg-[#ff9f0a]/10' : 'text-gray-400 hover:text-[#ff9f0a] hover:bg-[#ff9f0a]/10'"
             :title="video.isFavorite ? '取消收藏' : '添加到收藏'"
           >
             <svg class="w-4 h-4" :fill="video.isFavorite ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,7 +550,7 @@ const getImageSrc = (video: Video) => {
 
         <button
           @click.stop="editVideo"
-          class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 hover:scale-110"
+          class="p-2 text-gray-400 hover:text-[#0071e3] hover:bg-[#0071e3]/10 rounded-[8px] transition-all duration-200 hover:scale-105"
           title="编辑信息"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

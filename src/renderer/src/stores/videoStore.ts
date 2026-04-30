@@ -13,6 +13,7 @@ export interface Video {
   category?: string
   tags?: string[]
   playCount?: number
+  lastPlayed?: Date | string
   rating?: number
   isFavorite?: boolean
   createdAt?: Date
@@ -164,6 +165,7 @@ export const useVideoStore = defineStore('video', () => {
     if (!video) return null
 
     video.playCount = (video.playCount || 0) + 1
+    video.lastPlayed = new Date()
     saveData()
     return video
   }

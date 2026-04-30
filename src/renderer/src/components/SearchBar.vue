@@ -5,8 +5,8 @@
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="搜索你感兴趣的视频..."
-        class="w-full px-4 py-3 pl-12 pr-12 text-sm bg-gray-50/80 backdrop-blur-sm border-2 border-transparent rounded-full focus:outline-none focus:bg-white focus:border-pink-200 focus:shadow-lg transition-all duration-300 placeholder-gray-400"
+        placeholder="搜索电影、文件夹或标签"
+        class="w-full px-4 py-2.5 pl-11 pr-11 text-sm bg-white/68 backdrop-blur-xl border border-black/[0.08] rounded-full focus:outline-none focus:bg-white focus:border-[#0071e3]/40 focus:ring-4 focus:ring-[#0071e3]/10 focus:shadow-lg transition-all duration-200 placeholder-gray-400"
         @input="handleInput"
         @focus="showSuggestions = true"
         @blur="handleBlur"
@@ -14,7 +14,7 @@
       
       <!-- 搜索图标 -->
       <div class="absolute inset-y-0 left-0 flex items-center pl-4">
-        <svg class="h-5 w-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
       </div>
@@ -23,9 +23,9 @@
       <button
         v-if="searchQuery"
         @click="clearSearch"
-        class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-pink-500 transition-colors duration-200"
+        class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-[#1d1d1f] transition-colors duration-200"
       >
-        <div class="p-1 rounded-full hover:bg-pink-50">
+        <div class="p-1 rounded-full hover:bg-gray-100">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
@@ -36,11 +36,11 @@
     <!-- 搜索建议下拉框 -->
     <div
       v-if="showSuggestions && (searchHistory.length > 0 || suggestions.length > 0)"
-      class="absolute z-10 w-full mt-2 bg-white/95 backdrop-blur-xl border border-pink-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto"
+      class="absolute z-10 w-full mt-2 bg-white/88 backdrop-blur-2xl border border-black/[0.08] rounded-[8px] shadow-[0_22px_60px_rgba(0,0,0,0.16)] max-h-60 overflow-y-auto"
     >
       <!-- 搜索历史 -->
       <div v-if="searchHistory.length > 0 && !searchQuery" class="p-3">
-        <div class="text-xs font-medium text-pink-500 mb-3 flex items-center">
+        <div class="text-xs font-medium text-gray-500 mb-3 flex items-center">
           <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
@@ -50,12 +50,12 @@
           v-for="(item, index) in searchHistory.slice(0, 5)"
           :key="index"
           @click="selectSuggestion(item)"
-          class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-pink-50 rounded-xl cursor-pointer transition-colors duration-200"
+          class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-[8px] cursor-pointer transition-colors duration-200"
         >
           <span>{{ item }}</span>
           <button
             @click.stop="removeFromHistory(index)"
-            class="text-gray-400 hover:text-pink-500 p-1 rounded-full hover:bg-pink-100 transition-all duration-200"
+            class="text-gray-400 hover:text-[#1d1d1f] p-1 rounded-full hover:bg-gray-100 transition-all duration-200"
           >
             <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -66,7 +66,7 @@
       
       <!-- 搜索建议 -->
       <div v-if="suggestions.length > 0" class="p-3">
-        <div class="text-xs font-medium text-pink-500 mb-3 flex items-center">
+        <div class="text-xs font-medium text-gray-500 mb-3 flex items-center">
           <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
           </svg>
@@ -76,7 +76,7 @@
           v-for="(suggestion, index) in suggestions.slice(0, 5)"
           :key="index"
           @click="selectSuggestion(suggestion)"
-          class="px-3 py-2 text-sm text-gray-700 hover:bg-pink-50 rounded-xl cursor-pointer transition-colors duration-200"
+          class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-[8px] cursor-pointer transition-colors duration-200"
         >
           {{ suggestion }}
         </div>

@@ -90,14 +90,14 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 <template>
   <div class="relative">
-    <!-- 小红书风格分类选择按钮 -->
+    <!-- 分类选择按钮 -->
     <button
       @click="showDropdown = !showDropdown"
       @blur="handleClickOutside"
-      class="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-pink-50 to-red-50 border-2 border-pink-100 rounded-full text-sm font-semibold text-pink-600 hover:from-pink-100 hover:to-red-100 hover:border-pink-200 focus:outline-none focus:ring-4 focus:ring-pink-100 transition-all duration-300 shadow-sm hover:shadow-md"
+      class="inline-flex items-center px-4 py-2.5 bg-white/72 border border-black/[0.08] rounded-full text-sm font-semibold text-[#1d1d1f] hover:bg-white hover:border-black/[0.14] focus:outline-none focus:ring-4 focus:ring-[#0071e3]/10 transition-all duration-200 shadow-sm hover:shadow-md"
     >
       <!-- 分类图标 -->
-      <svg class="h-4 w-4 mr-2 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="h-4 w-4 mr-2 text-[#0071e3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="getCategoryIcon(selectedCategoryData)"></path>
       </svg>
       
@@ -105,13 +105,13 @@ const handleKeydown = (event: KeyboardEvent) => {
       <span>{{ selectedCategoryData.name }}</span>
       
       <!-- 视频数量 -->
-      <span v-if="selectedCategoryData.count !== undefined" class="ml-1 px-2 py-0.5 bg-pink-200 text-pink-700 text-xs rounded-full font-medium">
+      <span v-if="selectedCategoryData.count !== undefined" class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
         {{ selectedCategoryData.count }}
       </span>
       
       <!-- 下拉箭头 -->
       <svg 
-        class="ml-2 h-4 w-4 text-pink-400 transition-transform duration-300"
+        class="ml-2 h-4 w-4 text-gray-500 transition-transform duration-300"
         :class="{ 'rotate-180': showDropdown }"
         fill="none" 
         stroke="currentColor" 
@@ -121,16 +121,16 @@ const handleKeydown = (event: KeyboardEvent) => {
       </svg>
     </button>
     
-    <!-- 小红书风格下拉菜单 -->
+    <!-- 下拉菜单 -->
     <div 
       v-if="showDropdown"
-      class="absolute z-50 mt-2 w-72 bg-white/95 backdrop-blur-xl border border-pink-100 rounded-2xl shadow-2xl max-h-80 overflow-hidden"
+      class="absolute z-50 mt-2 w-72 bg-white/88 backdrop-blur-2xl border border-black/[0.08] rounded-[8px] shadow-[0_22px_60px_rgba(0,0,0,0.16)] max-h-80 overflow-hidden"
     >
       <!-- 搜索框 -->
-      <div class="p-4 border-b border-pink-50">
+      <div class="p-4 border-b border-black/[0.06]">
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg class="h-4 w-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
             </svg>
           </div>
@@ -138,7 +138,7 @@ const handleKeydown = (event: KeyboardEvent) => {
             v-model="filterInput"
             type="text"
             placeholder="搜索分类..."
-            class="block w-full pl-11 pr-4 py-2.5 border-2 border-pink-100 rounded-xl text-sm bg-pink-50/50 placeholder-pink-400 focus:outline-none focus:bg-white focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all duration-300"
+            class="block w-full pl-11 pr-4 py-2.5 border border-black/[0.08] rounded-[8px] text-sm bg-[#f5f5f7] placeholder-gray-400 focus:outline-none focus:bg-white focus:border-[#0071e3]/40 focus:ring-4 focus:ring-[#0071e3]/10 transition-all duration-200"
             @keydown="handleKeydown"
           />
         </div>
@@ -146,8 +146,8 @@ const handleKeydown = (event: KeyboardEvent) => {
       
       <!-- 分类列表 -->
       <div class="max-h-64 overflow-y-auto">
-        <div v-if="filteredCategories.length === 0" class="px-4 py-6 text-sm text-pink-400 text-center">
-          <svg class="h-8 w-8 mx-auto mb-2 text-pink-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div v-if="filteredCategories.length === 0" class="px-4 py-6 text-sm text-gray-400 text-center">
+          <svg class="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.239 0-4.236-.18-5.536-.437C7.061 14.419 8 13.665 8 12.781V8.5c0-.955.448-1.805 1.145-2.356C10.765 5.589 8.485 5 6 5a8.997 8.997 0 00-2.252 11.803c.224.348.472.678.747.982C4.905 17.982 5.448 18 6 18c.552 0 1.095-.018 1.505-.215.275-.304.523-.634.747-.982A8.997 8.997 0 0010 5c-2.485 0-4.765.589-6.145 1.144C4.552 6.695 5 7.545 5 8.5v4.281c0 .884.939 1.638 2.464 1.782C8.764 14.82 10.761 15 13 15s4.236-.18 5.536-.437C19.061 14.419 20 13.665 20 12.781V8.5c0-.955-.448-1.805-1.145-2.356"></path>
           </svg>
           未找到匹配的分类
@@ -157,25 +157,25 @@ const handleKeydown = (event: KeyboardEvent) => {
           v-for="category in filteredCategories"
           :key="category.id"
           @click="selectCategory(category.id)"
-          class="w-full text-left px-4 py-3 text-sm hover:bg-pink-50 flex items-center justify-between transition-all duration-200 group"
+          class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 flex items-center justify-between transition-all duration-200 group"
           :class="{
-            'bg-gradient-to-r from-pink-50 to-red-50 text-pink-700 border-l-4 border-pink-400': category.id === selectedCategory,
-            'text-gray-700 hover:text-pink-600': category.id !== selectedCategory
+            'bg-[#f5f5f7] text-[#0071e3] border-l-4 border-[#0071e3]': category.id === selectedCategory,
+            'text-gray-700 hover:text-[#1d1d1f]': category.id !== selectedCategory
           }"
         >
           <div class="flex items-center space-x-3">
             <!-- 分类图标 -->
             <div class="p-1.5 rounded-lg transition-colors duration-200"
               :class="{
-                'bg-pink-100': category.id === selectedCategory,
-                'bg-gray-100 group-hover:bg-pink-100': category.id !== selectedCategory
+                'bg-[#0071e3]/10': category.id === selectedCategory,
+                'bg-gray-100 group-hover:bg-gray-200': category.id !== selectedCategory
               }"
             >
               <svg 
                 class="h-4 w-4 flex-shrink-0"
                 :class="{
-                  'text-pink-500': category.id === selectedCategory,
-                  'text-gray-500 group-hover:text-pink-500': category.id !== selectedCategory
+                  'text-[#0071e3]': category.id === selectedCategory,
+                  'text-gray-500 group-hover:text-[#1d1d1f]': category.id !== selectedCategory
                 }"
                 fill="none" 
                 stroke="currentColor" 
@@ -194,8 +194,8 @@ const handleKeydown = (event: KeyboardEvent) => {
             <span v-if="category.count !== undefined" 
               class="px-2 py-1 text-xs font-medium rounded-full"
               :class="{
-                'bg-pink-200 text-pink-700': category.id === selectedCategory,
-                'bg-gray-200 text-gray-600 group-hover:bg-pink-200 group-hover:text-pink-700': category.id !== selectedCategory
+                'bg-[#0071e3]/10 text-[#0071e3]': category.id === selectedCategory,
+                'bg-gray-200 text-gray-600 group-hover:bg-gray-300 group-hover:text-[#1d1d1f]': category.id !== selectedCategory
               }"
             >
               {{ category.count }}
@@ -204,7 +204,7 @@ const handleKeydown = (event: KeyboardEvent) => {
             <!-- 选中标识 -->
             <div 
               v-if="category.id === selectedCategory"
-              class="p-1 bg-pink-500 rounded-full"
+              class="p-1 bg-[#0071e3] rounded-full"
             >
               <svg 
                 class="h-3 w-3 text-white"
