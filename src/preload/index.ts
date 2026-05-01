@@ -10,6 +10,7 @@ const api = {
   setAsCover: (imagePath: string) => ipcRenderer.invoke('set-as-cover', imagePath),
   deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
   deleteFolder: (folderPath: string) => ipcRenderer.invoke('delete-folder', folderPath),
+  createWrapperFolder: (videoPath: string) => ipcRenderer.invoke('create-wrapper-folder', videoPath),
   openInExplorer: (folderPath: string) => ipcRenderer.invoke('open-in-explorer', folderPath),
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   confirmUpdate: () => ipcRenderer.send('confirm-update'),

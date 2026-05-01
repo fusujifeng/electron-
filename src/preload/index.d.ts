@@ -8,6 +8,7 @@ interface CustomAPI {
   setAsCover: (imagePath: string) => Promise<{success: boolean, message?: string, error?: string}>
   deleteFile: (filePath: string) => Promise<{success: boolean, error?: string}>
   deleteFolder: (folderPath: string) => Promise<{success: boolean, error?: string}>
+  createWrapperFolder: (videoPath: string) => Promise<{success: boolean, folderPath?: string, error?: string}>
   openInExplorer: (folderPath: string) => Promise<{success: boolean, error?: string}>
   checkForUpdates: () => void
   confirmUpdate: () => void

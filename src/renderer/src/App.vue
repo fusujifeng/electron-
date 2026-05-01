@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import VideoGrid from './components/VideoGrid.vue'
 import SearchBar from './components/SearchBar.vue'
 import CategoryFilter from './components/CategoryFilter.vue'
@@ -34,11 +34,33 @@ const recommendationDirection = ref<'left' | 'right'>('right')
 const recommendationAnimating = ref(false)
 const showFavoritesPanel = ref(false)
 
+// 侧边栏折叠状态
+const sidebarCollapsed = ref(false)
+const SIDEBAR_COLLAPSED_KEY = 'feng-sidebar-collapsed'
+const LIBRARY_FOLDERS_KEY = 'feng-library-folders'
+const FOLDER_ENABLED_KEY = 'feng-folder-enabled'
+
+// 文件夹库管理（防止导航篡改）
+const libraryFolders = ref<string[]>([])
+const folderEnabled = ref<Record<string, boolean>>({})
+const sidebarWidthPx = computed(() => {
+  if (windowWidth.value < 1280) return sidebarCollapsed.value ? 0 : 260
+  return sidebarCollapsed.value ? 60 : 260
+})
+const mainPaddingLeftPx = computed(() => {
+  if (windowWidth.value < 1280) return 0
+  return sidebarCollapsed.value ? 60 : 260
+})
+const isMobile = computed(() => windowWidth.value < 1280)
+
 // 右键菜单相关
 const showContextMenu = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const contextMenuType = ref<'paste' | 'image'>('paste') // 菜单类型：粘贴或图片操作
 const selectedImagePath = ref<string>('') // 选中的图片路径
+
+// 视频右键菜单
+const videoContextMenu = ref<{ video: Video; x: number; y: number } | null>(null)
 
 // Toast通知相关
 const toastMessage = ref('')
@@ -130,13 +152,23 @@ const hashString = (value: string) => {
   return hash
 }
 
+const hasValidCover = (video: Video) =>
+  !!video.thumbnail &&
+  video.thumbnail !== '/default-thumbnail.jpg' &&
+  video.thumbnail !== '/folder-icon.svg'
+
+const recommendableItems = computed(() =>
+  videoStore.videos.filter((v) => hasValidCover(v) && v.category !== 'image')
+)
+
 const dailyRecommendationVideos = computed(() => {
   const staleBefore = Date.now() - 14 * 24 * 60 * 60 * 1000
-  const freshPool = playableVideos.value.filter((video) => {
+  const withCovers = recommendableItems.value
+  const freshPool = withCovers.filter((video) => {
     const lastPlayed = getTimeValue(video.lastPlayed)
     return !lastPlayed || lastPlayed < staleBefore || (video.playCount || 0) === 0
   })
-  const backupPool = playableVideos.value.filter((video) => !freshPool.includes(video))
+  const backupPool = withCovers.filter((video) => !freshPool.includes(video))
 
   return [...freshPool, ...backupPool]
     .sort((a, b) => {
@@ -180,8 +212,24 @@ const selectFolders = async (folderPaths: string[]) => {
   try {
     if (folderPaths && folderPaths.length > 0) {
       clearNavigationHistory()
-      selectedFolders.value = folderPaths
+
+      // 添加到文库（不重复）
+      for (const fp of folderPaths) {
+        if (!libraryFolders.value.includes(fp)) {
+          libraryFolders.value.push(fp)
+        }
+      }
+      // 确保所有选中的文件夹都已启用（替换整个对象触发响应式）
+      const nextEnabled: Record<string, boolean> = { ...folderEnabled.value }
+      for (const fp of folderPaths) {
+        nextEnabled[fp] = true
+      }
+      folderEnabled.value = nextEnabled
+
+      // 设置为当前浏览的文件夹（包含所有已启用的文库文件夹）
+      selectedFolders.value = libraryFolders.value.filter((p) => folderEnabled.value[p] !== false)
       videoStore.updateSettings({ lastSelectedFolder: folderPaths[0] })
+      persistLibraryState()
       await loadVideos()
     }
   } catch (error) {
@@ -189,10 +237,43 @@ const selectFolders = async (folderPaths: string[]) => {
   }
 }
 
+const persistLibraryState = () => {
+  try {
+    localStorage.setItem(LIBRARY_FOLDERS_KEY, JSON.stringify(libraryFolders.value))
+    localStorage.setItem(FOLDER_ENABLED_KEY, JSON.stringify(folderEnabled.value))
+  } catch { /* ignore */ }
+}
+
+const loadLibraryState = () => {
+  try {
+    const saved = localStorage.getItem(LIBRARY_FOLDERS_KEY)
+    if (saved) libraryFolders.value = JSON.parse(saved)
+    const enabled = localStorage.getItem(FOLDER_ENABLED_KEY)
+    if (enabled) {
+      folderEnabled.value = JSON.parse(enabled)
+    }
+    // 确保所有文库文件夹都有启用状态（默认为 true）
+    const patched: Record<string, boolean> = { ...folderEnabled.value }
+    let needsPatch = false
+    for (const fp of libraryFolders.value) {
+      if (!(fp in patched)) {
+        patched[fp] = true
+        needsPatch = true
+      }
+    }
+    if (needsPatch) folderEnabled.value = patched
+  } catch { /* ignore */ }
+}
+
 // 移除文件夹
 const removeFolder = async (folderPath: string) => {
   try {
+    libraryFolders.value = libraryFolders.value.filter((path) => path !== folderPath)
+    const nextEnabled = { ...folderEnabled.value }
+    delete nextEnabled[folderPath]
+    folderEnabled.value = nextEnabled
     selectedFolders.value = selectedFolders.value.filter((path) => path !== folderPath)
+    persistLibraryState()
     if (selectedFolders.value.length > 0) {
       await loadVideos()
     } else {
@@ -200,6 +281,24 @@ const removeFolder = async (folderPath: string) => {
     }
   } catch (error) {
     console.error('移除文件夹失败:', error)
+  }
+}
+
+// 切换文件夹启用状态
+const toggleFolderEnabled = async (folderPath: string) => {
+  const wasEnabled = folderEnabled.value[folderPath] !== false
+  // 替换整个对象以触发 ref 响应式
+  folderEnabled.value = { ...folderEnabled.value, [folderPath]: !wasEnabled }
+  persistLibraryState()
+  const folderName = folderPath.split(/[\\/]/).pop() || folderPath
+  showToast(wasEnabled ? `已禁用：${folderName}` : `已启用：${folderName}`, 'info')
+  const enabled = libraryFolders.value.filter((p) => folderEnabled.value[p] !== false)
+  if (enabled.length > 0) {
+    selectedFolders.value = [...enabled]
+    await loadVideos()
+  } else {
+    selectedFolders.value = []
+    videoStore.clearVideos()
   }
 }
 
@@ -291,7 +390,9 @@ const loadVideos = async () => {
               name: item.name,
               title: item.name.replace(/\.[^/.]+$/, ''),
               path: item.path,
-              thumbnail: '/default-thumbnail.jpg',
+              thumbnail: item.coverImage
+                ? `local-image://${encodeURIComponent(item.coverImage.replace(/\\/g, '/'))}`
+                : '/default-thumbnail.jpg',
               duration: 0,
               size: item.size || 0,
               category: detectCategory(item.name),
@@ -403,15 +504,28 @@ const applyPersistedVideoState = (video: Video, previous?: Video): Video => {
 }
 
 const getDiscoveryImageSrc = (video: Video) => {
-  if (!video.thumbnail || video.thumbnail === '/default-thumbnail.jpg' || video.thumbnail === '/folder-icon.svg') {
-    return ''
+  if (!hasValidCover(video)) return ''
+
+  const thumb = video.thumbnail!
+
+  if (thumb.startsWith('blob:') || thumb.startsWith('/')) {
+    return thumb
   }
 
-  if (video.thumbnail.startsWith('blob:') || video.thumbnail.startsWith('/') || video.thumbnail.startsWith('local-image://')) {
-    return video.thumbnail
+  if (thumb.startsWith('local-image://')) {
+    const url = thumb
+    if (url.includes('%')) {
+      try {
+        const decodedPath = decodeURIComponent(url.replace('local-image://', ''))
+        return `local-image://${decodedPath}`
+      } catch {
+        return url
+      }
+    }
+    return url
   }
 
-  return `local-image://${video.thumbnail.replace(/\\/g, '/')}`
+  return `local-image://${thumb.replace(/\\/g, '/')}`
 }
 
 const formatLastPlayed = (video: Video) => {
@@ -431,7 +545,7 @@ const getRankingWidth = (video: Video) => {
 
 const openRecommendationPanel = () => {
   if (dailyRecommendationVideos.value.length === 0) {
-    showToast('暂无可推荐的视频', 'info')
+    showToast('没有可推荐的视频（需要有封面）', 'info')
     return
   }
   recommendationIndex.value = 0
@@ -477,6 +591,15 @@ const openFavoritesPanel = () => {
 
 const closeFavoritesPanel = () => {
   showFavoritesPanel.value = false
+}
+
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+const handleCategoryChangeMobile = (categoryId: string) => {
+  handleCategoryChange(categoryId)
+  if (isMobile.value) sidebarCollapsed.value = true
 }
 
 const openDiscoveryVideo = async (video: Video) => {
@@ -528,6 +651,11 @@ const openFolderSelect = async (folderPath: string) => {
 
 // 回退到上一个文件夹
 const goBack = async () => {
+  // 关闭预览面板
+  if (showPreviewPanel.value) {
+    closePreviewPanel()
+  }
+
   if (navigationHistory.value.length > 0) {
     const previousState = navigationHistory.value.pop();
     if (previousState && previousState.folders) {
@@ -693,10 +821,18 @@ const deleteVideoFolder = async () => {
     if (result?.success) {
       // 删除成功，关闭预览面板
       closePreviewPanel()
-      
+
+      // 保存滚动位置
+      const scrollContainer = document.querySelector('.video-grid-container') as HTMLElement
+      const savedScroll = scrollContainer?.scrollTop || 0
+
       // 刷新当前目录
       await refreshCurrentDirectory()
-      
+      await nextTick()
+
+      // 恢复滚动位置
+      if (scrollContainer) scrollContainer.scrollTop = savedScroll
+
       console.log('文件夹删除成功')
     } else {
       console.error('删除文件夹失败:', result?.error)
@@ -793,6 +929,31 @@ const closeContextMenu = () => {
   showContextMenu.value = false
 }
 
+const handleVideoContextMenu = (payload: { video: Video; event: MouseEvent }) => {
+  videoContextMenu.value = { video: payload.video, x: payload.event.clientX, y: payload.event.clientY }
+}
+
+const closeVideoContextMenu = () => {
+  videoContextMenu.value = null
+}
+
+const createWrapperFolder = async () => {
+  if (!videoContextMenu.value) return
+  const video = videoContextMenu.value
+  closeVideoContextMenu()
+  try {
+    const result = await window.api.createWrapperFolder(video.video.path)
+    if (result?.success) {
+      await refreshCurrentDirectory()
+      showToast('已创建外层文件夹', 'success')
+    } else {
+      showToast('创建失败: ' + (result?.error || '未知错误'), 'error')
+    }
+  } catch (error) {
+    showToast('创建失败', 'error')
+  }
+}
+
 // 粘贴剪贴板图片
 const pasteClipboardImage = async () => {
   closeContextMenu()
@@ -849,6 +1010,35 @@ const handleDocumentClick = (event: Event) => {
     // 如果点击的不是右键菜单内部，则关闭菜单
     if (contextMenu && !contextMenu.contains(target)) {
       closeContextMenu()
+    }
+  }
+
+  if (videoContextMenu.value) {
+    const target = event.target as HTMLElement
+    const vMenu = document.querySelector('.video-context-menu')
+    if (vMenu && !vMenu.contains(target)) {
+      closeVideoContextMenu()
+    }
+  }
+}
+
+const copyPath = async () => {
+  try {
+    await navigator.clipboard.writeText(selectedFolders.value[0])
+    showToast('路径已复制', 'success')
+  } catch { /* ignore */ }
+}
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    if (showPreviewPanel.value) {
+      event.preventDefault()
+      closePreviewPanel()
+      return
+    }
+    if (canGoBack.value) {
+      event.preventDefault()
+      goBack()
     }
   }
 }
@@ -952,12 +1142,40 @@ const formatPercent = (value) => {
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
   document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleKeyDown)
 
-  const lastFolder = videoStore.settings.lastSelectedFolder
-  if (lastFolder) {
-    selectedFolders.value = [lastFolder]
-    await loadVideos()
+  // 加载文库状态
+  loadLibraryState()
+
+  // 从文库恢复：加载所有启用的文库文件夹
+  if (libraryFolders.value.length > 0) {
+    const lastFolder = videoStore.settings.lastSelectedFolder
+    // 确保 lastFolder 在文库中
+    if (lastFolder && !libraryFolders.value.includes(lastFolder)) {
+      libraryFolders.value.push(lastFolder)
+      folderEnabled.value = { ...folderEnabled.value, [lastFolder]: true }
+      persistLibraryState()
+    }
+    const enabled = libraryFolders.value.filter((p) => folderEnabled.value[p] !== false)
+    if (enabled.length > 0) {
+      selectedFolders.value = enabled
+      await loadVideos()
+    }
+  } else {
+    const lastFolder = videoStore.settings.lastSelectedFolder
+    if (lastFolder) {
+      libraryFolders.value.push(lastFolder)
+      folderEnabled.value = { ...folderEnabled.value, [lastFolder]: true }
+      persistLibraryState()
+      selectedFolders.value = [lastFolder]
+      await loadVideos()
+    }
   }
+
+  try {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
+    if (saved === 'true') sidebarCollapsed.value = true
+  } catch { /* ignore */ }
 
   // 监听主进程的更新事件
   // 注意：需要在预加载脚本中暴露这些事件监听器
@@ -970,10 +1188,16 @@ onMounted(async () => {
   // })
 })
 
+// 持久化侧边栏折叠状态
+watch(sidebarCollapsed, (val) => {
+  try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(val)) } catch { /* ignore */ }
+})
+
 // 组件卸载时清理
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 
@@ -1023,84 +1247,104 @@ onUnmounted(() => {
       </div>
     </Transition>
 
-    <div class="min-h-screen xl:pl-[292px]">
+    <!-- Mobile overlay backdrop -->
+    <div
+      v-if="isMobile && !sidebarCollapsed"
+      class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+      @click="sidebarCollapsed = true"
+    />
+
+    <div class="flex min-h-screen">
       <aside
-        class="fixed inset-y-0 left-0 z-40 hidden w-[292px] flex-col border-r border-white/70 bg-white/58 px-4 py-5 shadow-[1px_0_0_rgba(255,255,255,0.75)_inset] backdrop-blur-2xl xl:flex"
+        class="sidebar-transition flex-shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white"
+        :class="isMobile ? 'fixed inset-y-0 left-0 z-50' : 'relative flex'"
+        :style="{ width: sidebarWidthPx + 'px' }"
       >
-        <div class="flex items-center gap-3 px-2">
-          <div class="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#0071e3] shadow-[0_12px_32px_rgba(0,113,227,0.28)]">
-            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2.3"
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              ></path>
+        <!-- Back button -->
+        <div class="flex items-center gap-1 px-4 pt-4 pb-1">
+          <button
+            @click="goBack"
+            class="flex h-10 w-10 items-center justify-center rounded-xl text-[#0071e3] transition hover:bg-[#0071e3]/10"
+            title="返回"
+          >
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-          </div>
-          <div>
-            <h1 class="text-base font-semibold leading-tight text-[#1d1d1f]">澪妹管理大师</h1>
-            <p class="text-xs font-medium text-gray-500">Cinema Library</p>
-          </div>
+          </button>
+          <button
+            @click="toggleSidebar"
+            class="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            :class="{ 'ml-auto': !canGoBack }"
+            title="收起侧边栏"
+          >
+            <svg class="h-4 w-4 sidebar-chevron" :class="{ collapsed: sidebarCollapsed }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
         </div>
 
-        <div class="mt-7 grid grid-cols-2 gap-2">
-          <div class="rounded-[14px] border border-white/70 bg-white/64 p-3 shadow-sm">
-            <p class="text-[11px] font-medium text-gray-500">项目</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight">{{ libraryStats.total }}</p>
-          </div>
-          <div class="rounded-[14px] border border-white/70 bg-white/64 p-3 shadow-sm">
-            <p class="text-[11px] font-medium text-gray-500">视频</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight">{{ libraryStats.playable }}</p>
-          </div>
-          <div class="rounded-[14px] border border-white/70 bg-white/64 p-3 shadow-sm">
-            <p class="text-[11px] font-medium text-gray-500">文件夹</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight">{{ libraryStats.folders }}</p>
-          </div>
-          <div class="rounded-[14px] border border-white/70 bg-white/64 p-3 shadow-sm">
-            <p class="text-[11px] font-medium text-gray-500">图片</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight">{{ libraryStats.images }}</p>
-          </div>
+        <!-- Logo -->
+        <div v-show="!sidebarCollapsed" class="px-5 pb-4">
+          <h1 class="text-lg font-bold tracking-tight text-[#1d1d1f]">澪妹管理大师</h1>
         </div>
 
-        <div class="mt-4 grid grid-cols-2 gap-2">
+        <!-- Nav buttons: 推荐 + 最爱 -->
+        <div class="space-y-1 px-3">
           <button
             @click="openRecommendationPanel"
             :disabled="dailyRecommendationVideos.length === 0"
-            class="rounded-[12px] bg-[#0071e3] px-3 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(0,113,227,0.22)] transition hover:bg-[#0077ed] disabled:cursor-not-allowed disabled:opacity-45"
+            class="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-30"
+            :class="sidebarCollapsed ? 'justify-center px-2' : 'hover:bg-gray-100 text-[#1d1d1f]'"
+            title="每日推荐"
           >
-            每日推荐
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#0071e3] shadow-[0_6px_16px_rgba(0,113,227,0.24)]">
+              <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span v-show="!sidebarCollapsed">每日推荐</span>
           </button>
           <button
             @click="openFavoritesPanel"
             :disabled="favoriteRankingVideos.length === 0"
-            class="rounded-[12px] border border-black/[0.08] bg-white/78 px-3 py-2.5 text-sm font-semibold text-[#1d1d1f] shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
+            class="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-30"
+            :class="sidebarCollapsed ? 'justify-center px-2' : 'hover:bg-gray-100 text-[#1d1d1f]'"
+            title="我的最爱"
           >
-            我的最爱
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#ff9f0a]/15">
+              <svg class="h-5 w-5 text-[#ff9f0a]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </div>
+            <span v-show="!sidebarCollapsed">我的最爱</span>
           </button>
         </div>
 
-        <div class="mt-7">
-          <div class="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">分类</div>
-          <div class="space-y-1">
+        <!-- Categories -->
+        <div class="mt-5 flex-1 overflow-y-auto">
+          <div v-show="!sidebarCollapsed" class="mb-1 px-5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-400">分类</div>
+          <div class="space-y-0.5 px-3">
             <button
               v-for="category in categories"
               :key="category.id"
-              @click="handleCategoryChange(category.id)"
-              class="group flex w-full items-center justify-between rounded-[10px] px-3 py-2.5 text-sm transition"
-              :class="
-                selectedCategory === category.id
-                  ? 'bg-white text-[#0071e3] shadow-sm ring-1 ring-black/[0.04]'
-                  : 'text-gray-600 hover:bg-white/62 hover:text-[#1d1d1f]'
-              "
+              @click="handleCategoryChangeMobile(category.id)"
+              class="group flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium transition"
+              :class="{
+                'bg-[#0071e3]/8 text-[#0071e3]': selectedCategory === category.id,
+                'text-gray-600 hover:bg-gray-100 hover:text-[#1d1d1f]': selectedCategory !== category.id,
+                'justify-center px-2': sidebarCollapsed,
+                'justify-between': !sidebarCollapsed
+              }"
+              :title="category.name"
             >
-              <span class="flex items-center gap-2">
-                <span class="text-base leading-none">{{ category.icon }}</span>
-                <span class="font-medium">{{ category.name }}</span>
+              <span class="flex items-center gap-3 min-w-0">
+                <span class="text-lg leading-none flex-shrink-0">{{ category.icon }}</span>
+                <span v-show="!sidebarCollapsed" class="truncate">{{ category.name }}</span>
               </span>
               <span
-                class="rounded-full px-2 py-0.5 text-xs"
-                :class="selectedCategory === category.id ? 'bg-[#0071e3]/10' : 'bg-gray-200/70 text-gray-500'"
+                v-show="!sidebarCollapsed"
+                class="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="selectedCategory === category.id ? 'bg-[#0071e3]/15 text-[#0071e3]' : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'"
               >
                 {{ category.count }}
               </span>
@@ -1108,28 +1352,106 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="mt-auto space-y-2 border-t border-black/[0.06] pt-4">
+        <!-- Stats -->
+        <div v-show="!sidebarCollapsed" class="mt-3 border-t border-gray-100 px-5 py-3">
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div>
+              <p class="text-sm font-bold text-[#1d1d1f]">{{ libraryStats.total }}</p>
+              <p class="text-[10px] text-gray-400">项目</p>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-[#1d1d1f]">{{ libraryStats.playable }}</p>
+              <p class="text-[10px] text-gray-400">视频</p>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-[#1d1d1f]">{{ libraryStats.folders }}</p>
+              <p class="text-[10px] text-gray-400">文件夹</p>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-[#1d1d1f]">{{ libraryStats.images }}</p>
+              <p class="text-[10px] text-gray-400">图片</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Library folders with toggles -->
+        <div v-if="libraryFolders.length > 0" class="border-t border-gray-100">
+          <div v-show="!sidebarCollapsed" class="px-5 pt-3 pb-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold uppercase tracking-[0.1em] text-gray-400">文库文件夹</span>
+              <span class="text-[10px] text-gray-400">{{ libraryFolders.filter(p => folderEnabled[p] !== false).length }}/{{ libraryFolders.length }}</span>
+            </div>
+          </div>
+          <div class="space-y-0.5 px-2 py-1">
+            <div
+              v-for="folder in libraryFolders"
+              :key="folder"
+              class="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-gray-100"
+              :class="sidebarCollapsed ? 'justify-center' : ''"
+            >
+              <button
+                @click.stop="toggleFolderEnabled(folder)"
+                class="relative flex-shrink-0 h-5 w-9 rounded-full transition-colors"
+                :class="folderEnabled[folder] !== false ? 'bg-[#0071e3]' : 'bg-gray-300'"
+              >
+                <span
+                  class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+                  :class="folderEnabled[folder] !== false ? 'translate-x-[18px]' : 'translate-x-[2px]'"
+                />
+              </button>
+              <span
+                v-show="!sidebarCollapsed"
+                class="min-w-0 flex-1 truncate text-[12px] font-medium text-gray-600"
+                :title="folder"
+              >
+                {{ folder.split(/[\\/]/).pop() || folder }}
+              </span>
+              <button
+                v-show="!sidebarCollapsed"
+                @click="removeFolder(folder)"
+                class="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-400 hover:text-[#ff3b30] hover:bg-red-50 transition"
+                title="移除文件夹"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="border-t border-gray-100 p-3">
           <button
             @click="openSettings"
-            class="flex w-full items-center gap-2 rounded-[10px] px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-white/70 hover:text-[#1d1d1f]"
+            class="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-[#1d1d1f]"
+            :class="sidebarCollapsed ? 'justify-center px-2' : ''"
+            title="设置"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              ></path>
+            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             </svg>
-            设置
+            <span v-show="!sidebarCollapsed">设置</span>
           </button>
         </div>
       </aside>
 
-      <header
-        class="sticky top-0 z-30 border-b border-white/70 bg-white/58 px-4 py-3 shadow-[0_1px_0_rgba(255,255,255,0.85)_inset] backdrop-blur-2xl sm:px-6"
+      <div class="flex-1 min-w-0">
+        <header
+          class="sticky top-0 z-30 border-b border-white/70 bg-white/58 px-4 py-3 shadow-[0_1px_0_rgba(255,255,255,0.85)_inset] backdrop-blur-2xl sm:px-6"
       >
         <div class="flex items-center gap-3">
+          <!-- Mobile sidebar toggle -->
+          <button
+            @click="toggleSidebar"
+            class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] border border-white/70 bg-white/58 text-[#1d1d1f] shadow-sm transition hover:bg-white xl:hidden"
+            title="菜单"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
           <div class="flex min-w-0 items-center gap-3 xl:hidden">
             <div class="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#0071e3] text-white shadow-lg">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1149,6 +1471,18 @@ onUnmounted(() => {
 
           <div class="min-w-0 flex-1">
             <SearchBar @search="handleSearch" />
+          </div>
+
+          <div
+            v-if="selectedFolders.length === 1"
+            class="hidden min-w-0 max-w-[320px] items-center gap-1.5 rounded-full border border-black/[0.06] bg-white/60 px-3 py-1.5 text-xs text-gray-400 xl:flex"
+            :title="selectedFolders[0]"
+            @click="copyPath"
+          >
+            <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span class="truncate cursor-pointer hover:text-gray-600 transition">{{ selectedFolders[0] }}</span>
           </div>
 
           <button
@@ -1180,9 +1514,8 @@ onUnmounted(() => {
           </button>
 
           <button
-            v-if="canGoBack"
             @click="goBack"
-            class="hidden h-10 items-center gap-2 rounded-[10px] border border-black/[0.08] bg-white/78 px-3 text-sm font-medium text-[#1d1d1f] shadow-sm transition hover:bg-white md:flex"
+            class="hidden h-10 items-center gap-2 rounded-[10px] bg-[#0071e3] px-3 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(0,113,227,0.22)] transition hover:bg-[#0077ed] md:flex"
             title="返回上一级"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1352,10 +1685,13 @@ onUnmounted(() => {
                 <div class="border-t border-black/[0.06] bg-white/44 p-5 lg:border-l lg:border-t-0">
                   <FolderSelector
                     :selected-folders="selectedFolders"
+                    :library-folders="libraryFolders"
                     :is-loading="isLoading"
+                    :folder-enabled="folderEnabled"
                     @select="selectFolders"
                     @refresh="refreshFolder"
                     @remove="removeFolder"
+                    @toggle="toggleFolderEnabled"
                   />
                 </div>
               </div>
@@ -1375,6 +1711,7 @@ onUnmounted(() => {
                 @video-favorite="handleVideoFavorite"
                 @folder-select="handleFolderSelect"
                 @folder-preview="handleFolderPreview"
+                @video-contextmenu="handleVideoContextMenu"
               />
             </div>
           </div>
@@ -1537,6 +1874,23 @@ onUnmounted(() => {
     </div>
 
     <div
+      v-if="videoContextMenu"
+      class="video-context-menu fixed z-50 min-w-[180px] rounded-[12px] border border-white/70 bg-white/88 py-2 shadow-[0_22px_60px_rgba(0,0,0,0.18)] backdrop-blur-2xl"
+      :style="{ left: videoContextMenu.x + 'px', top: videoContextMenu.y + 'px' }"
+      @click.stop
+    >
+      <button
+        class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+        @click="createWrapperFolder"
+      >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 4V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </svg>
+        <span>创建外层文件夹</span>
+      </button>
+    </div>
+
+    <div
       v-if="showRecommendationPanel"
       class="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-slate-950/40 px-4 py-8 backdrop-blur-xl"
       @click.self="closeRecommendationPanel"
@@ -1579,30 +1933,23 @@ onUnmounted(() => {
         >
           <div
             :key="recommendationIndex"
-            class="overflow-hidden rounded-[22px] border border-white/70 bg-white/92 shadow-[0_30px_90px_rgba(0,0,0,0.26)]"
+            class="overflow-hidden rounded-[22px] border border-white/70 bg-white/92 shadow-[0_30px_90px_rgba(0,0,0,0.26)] cursor-pointer"
+            @dblclick="openDiscoveryVideo(currentRecommendationVideo)"
           >
-            <!-- Image -->
-            <div class="relative aspect-[16/10] overflow-hidden bg-[#f5f5f7]">
+            <!-- Cover image -->
+            <div class="relative max-h-[60vh] overflow-hidden bg-black">
               <img
-                v-if="getDiscoveryImageSrc(currentRecommendationVideo)"
                 :src="getDiscoveryImageSrc(currentRecommendationVideo)"
                 :alt="currentRecommendationVideo.title || currentRecommendationVideo.name"
-                class="h-full w-full object-cover"
+                class="w-full object-contain"
               />
-              <div v-else class="flex h-full w-full items-center justify-center text-[#0071e3]">
-                <svg class="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.7"
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  ></path>
-                </svg>
-              </div>
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/76 via-black/20 to-transparent p-5 text-white">
                 <p class="line-clamp-2 text-2xl font-semibold leading-tight">
                   {{ currentRecommendationVideo.title || currentRecommendationVideo.name }}
                 </p>
+              </div>
+              <div v-if="currentRecommendationVideo.isFolder" class="absolute right-3 top-3 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                📁 文件夹
               </div>
             </div>
 
@@ -1611,7 +1958,7 @@ onUnmounted(() => {
               <p class="truncate text-sm text-gray-500">{{ currentRecommendationVideo.path }}</p>
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full bg-[#f5f5f7] px-2.5 py-1 font-medium text-gray-600">
-                  {{ formatLastPlayed(currentRecommendationVideo) }}
+                  {{ currentRecommendationVideo.isFolder ? '文件夹' : formatLastPlayed(currentRecommendationVideo) }}
                 </span>
                 <span class="rounded-full bg-[#0071e3]/10 px-2.5 py-1 font-semibold text-[#0071e3]">
                   {{ currentRecommendationVideo.playCount || 0 }} 次打开
@@ -1726,9 +2073,10 @@ onUnmounted(() => {
 
     <SettingsPanel v-if="showSettingsPanel" @close="closeSettings" />
 
-    <div v-if="showUpdateProgress" class="update-progress">
-      <p>正在更新：{{ formatPercent(progress.percent) }}%</p>
-      <progress :value="progress.percent" max="100"></progress>
+      <div v-if="showUpdateProgress" class="update-progress">
+        <p>正在更新：{{ formatPercent(progress.percent) }}%</p>
+        <progress :value="progress.percent" max="100"></progress>
+      </div>
     </div>
   </div>
 </template>

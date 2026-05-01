@@ -233,6 +233,24 @@ select {
   opacity: 0;
 }
 
+/* Sidebar collapse transitions */
+.sidebar-transition {
+  transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
+}
+
+.main-content-transition {
+  transition: padding-left 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-chevron {
+  transition: transform 280ms ease;
+}
+
+.sidebar-chevron.collapsed {
+  transform: rotate(180deg);
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 0.5rem;

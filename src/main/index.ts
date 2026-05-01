@@ -256,6 +256,36 @@ app.whenReady().then(() => {
     }
   }
 
+  const findVideoCoverImage = async (folderPath: string, videoName: string): Promise<string | null> => {
+    try {
+      const files = await fs.promises.readdir(folderPath)
+      const videoBaseName = path.parse(videoName).name.toLowerCase()
+
+      // 1. 查找与视频同名的图片: movie.mp4 → movie.jpg / movie.png / movie.webp
+      for (const file of files) {
+        const fileName = path.parse(file).name.toLowerCase()
+        const fileExt = path.extname(file).toLowerCase()
+        if (IMAGE_EXTENSIONS.includes(fileExt) && fileName === videoBaseName) {
+          return path.join(folderPath, file)
+        }
+      }
+
+      // 2. 查找常见封面名: folder / cover / poster
+      for (const file of files) {
+        const fileName = path.parse(file).name.toLowerCase()
+        const fileExt = path.extname(file).toLowerCase()
+        if (IMAGE_EXTENSIONS.includes(fileExt) && (fileName === 'folder' || fileName === 'cover' || fileName === 'poster')) {
+          return path.join(folderPath, file)
+        }
+      }
+
+      return null
+    } catch (error) {
+      console.error('Failed to find video cover image:', error)
+      return null
+    }
+  }
+
   // 扫描文件夹中的视频文件和子文件夹
   ipcMain.handle('scan-folder', async (_event, folderPath: string) => {
     try {
@@ -283,6 +313,8 @@ app.whenReady().then(() => {
         } else if (file.isFile()) {
           const ext = path.extname(file.name).toLowerCase()
           if (VIDEO_EXTENSIONS.includes(ext)) {
+            // 查找视频封面图
+            const coverImage = await findVideoCoverImage(folderPath, file.name)
             // 获取文件大小
             const stats = await fs.promises.stat(fullPath)
             items.push({
@@ -291,7 +323,8 @@ app.whenReady().then(() => {
               path: fullPath,
               size: stats.size,
               modifiedAt: stats.mtime.toISOString(),
-              isDirectory: false
+              isDirectory: false,
+              coverImage: coverImage || undefined
             })
           } else if (IMAGE_EXTENSIONS.includes(ext)) {
             // 添加图片文件支持
@@ -433,6 +466,29 @@ app.whenReady().then(() => {
       console.error('删除文件夹时发生异常:', error)
       const errorMessage = error instanceof Error ? error.message : '未知错误'
       return { success: false, error: `删除失败: ${errorMessage}` }
+    }
+  })
+
+  // 创建外层文件夹（包裹视频文件）
+  ipcMain.handle('create-wrapper-folder', async (_event, videoPath: string) => {
+    try {
+      const dir = path.dirname(videoPath)
+      const ext = path.extname(videoPath)
+      const baseName = path.basename(videoPath, ext)
+      const newFolderPath = path.join(dir, baseName)
+
+      if (!fs.existsSync(newFolderPath)) {
+        await fs.promises.mkdir(newFolderPath)
+      }
+
+      const newVideoPath = path.join(newFolderPath, path.basename(videoPath))
+      await fs.promises.rename(videoPath, newVideoPath)
+
+      return { success: true, folderPath: newFolderPath }
+    } catch (error) {
+      console.error('创建外层文件夹失败:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      return { success: false, error: `创建失败: ${errorMessage}` }
     }
   })
 

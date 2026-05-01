@@ -21,6 +21,7 @@ interface Emits {
   (e: 'video-favorite', video: Video): void
   (e: 'folder-select', path: string): void
   (e: 'folder-preview', video: Video): void
+  (e: 'video-contextmenu', payload: { video: Video; event: MouseEvent }): void
 }
 
 const props = defineProps<Props>()
@@ -245,6 +246,7 @@ onUnmounted(() => {
             @folder-select="handleFolderSelect"
             @folder-preview="handleFolderPreview"
             @cover-ratio="handleCoverRatio"
+            @video-contextmenu="(payload) => emit('video-contextmenu', payload)"
           />
           <ImgCard
             v-else

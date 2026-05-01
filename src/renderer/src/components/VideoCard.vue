@@ -14,6 +14,7 @@ interface Emits {
   (e: 'folder-select', path: string): void
   (e: 'folder-preview', video: Video): void
   (e: 'cover-ratio', payload: { id: string; ratio: number }): void
+  (e: 'video-contextmenu', payload: { video: Video; event: MouseEvent }): void
 }
 
 const props = defineProps<Props>()
@@ -90,6 +91,14 @@ const formatDuration = (duration: number | string | undefined) => {
 }
 
 
+
+// 处理右键菜单
+const handleContextMenu = (event: MouseEvent) => {
+  if (!props.video.isFolder && props.video.category !== 'image') {
+    event.preventDefault()
+    emit('video-contextmenu', { video: props.video, event })
+  }
+}
 
 // 处理单击事件
 const handleClick = () => {
@@ -263,6 +272,7 @@ const getImageSrc = (video: Video) => {
     @mouseleave="isHovered = false"
     @click="handleClick"
     @dblclick="handleDoubleClick"
+    @contextmenu="handleContextMenu"
   >
     <!-- 缩略图容器 -->
     <div class="relative bg-[#f5f5f7] overflow-hidden rounded-t-[8px]" :style="coverFrameStyle">

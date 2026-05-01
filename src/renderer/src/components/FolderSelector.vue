@@ -6,13 +6,16 @@ import { computed } from 'vue'
 
 interface Props {
   selectedFolders: string[]
+  libraryFolders?: string[]
   isLoading?: boolean
+  folderEnabled?: Record<string, boolean>
 }
 
 interface Emits {
   (e: 'select', folderPaths: string[]): void
   (e: 'refresh'): void
   (e: 'remove', folderPath: string): void
+  (e: 'toggle', folderPath: string): void
 }
 
 const props = defineProps<Props>()
@@ -42,7 +45,8 @@ const selectFolders = async () => {
 
     if (result && !result.canceled && result.filePaths.length > 0) {
       // 合并新选择的文件夹和已有的文件夹，去重
-      const newFolders = [...new Set([...props.selectedFolders, ...result.filePaths])]
+      const baseFolders = props.libraryFolders && props.libraryFolders.length > 0 ? props.libraryFolders : props.selectedFolders
+      const newFolders = [...new Set([...baseFolders, ...result.filePaths])]
       emit('select', newFolders)
     }
   } catch (error) {
@@ -59,16 +63,6 @@ const removeFolder = (folderPath: string) => {
 
 
 
-// 复制路径到剪贴板
-const copyPath = async (path: string) => {
-  try {
-    await navigator.clipboard.writeText(path)
-    console.log('路径已复制到剪贴板')
-  } catch (error) {
-    console.error('复制失败:', error)
-  }
-}
-
 // 在文件管理器中打开
 const openInExplorer = (path: string) => {
   // 通过 Electron 的 IPC 调用打开文件管理器
@@ -83,11 +77,14 @@ const openInExplorer = (path: string) => {
       <!-- 左侧：文件夹列表 -->
       <div class="flex flex-wrap gap-2 flex-1 mr-4">
          <div
-           v-for="folder in selectedFolders"
+           v-for="folder in (props.libraryFolders && props.libraryFolders.length > 0 ? props.libraryFolders : props.selectedFolders)"
            :key="folder"
-           class="group relative inline-flex items-center px-3 py-2 bg-white/72 hover:bg-white border border-black/[0.08] hover:border-[#0071e3]/30 rounded-[8px] transition-all duration-200 hover:shadow-md cursor-pointer max-w-xs"
-           :title="folder"
-           @click="copyPath(folder)"
+           class="group relative inline-flex items-center px-3 py-2 rounded-[8px] transition-all duration-200 hover:shadow-md cursor-pointer max-w-xs"
+           :class="props.folderEnabled?.[folder] !== false
+             ? 'bg-white/72 hover:bg-white border border-black/[0.08] hover:border-[#0071e3]/30'
+             : 'bg-gray-100 border border-gray-200 text-gray-400'"
+           :title="(props.folderEnabled?.[folder] !== false ? '' : '[已禁用] ') + folder"
+           @click="emit('toggle', folder)"
          >
            <!-- 文件夹图标 -->
            <svg class="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
